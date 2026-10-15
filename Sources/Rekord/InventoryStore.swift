@@ -13,6 +13,11 @@ import RecorderCore
     @Published var message = ""
     @Published var error: String?
     @Published var processing = false
+    @Published var observedBlocks: [InventoryBlock] = []
+    @Published var profiles: [String: ProcessProfile] = [:]
+    @Published var selectedProcessID: String?
+    @Published var hubTab = 0
+    var availableGuides: () -> [URL] = { GuidesFolder.all() }
     @Published var showSettings = false
     @Published var currentApp = ""
     @Published var currentPause: String?
@@ -94,6 +99,8 @@ import RecorderCore
         } catch { self.error = error.localizedDescription }
     }
     func reload() {
+        observedBlocks = InventoryFile.allBlocks(root: root)
+        do { profiles = try ProcessProfiles.load(root: root) } catch { self.error = "Steckbriefe konnten nicht geladen werden: \(error.localizedDescription)" }
         blocks = (try? InventoryFile.read(root.appendingPathComponent(selectedDay).appendingPathComponent("blocks.json"))) ?? []
         catalog = (try? ProcessCatalog.load(root: root)) ?? ProcessCatalog()
         usage = (try? InventoryFile.read(InventoryFolder.directory(root: root).appendingPathComponent("usage.json"))) ?? ClaudeUsage()
@@ -134,6 +141,9 @@ import RecorderCore
             let days = Array(Set(all.map { InventoryFolder.day($0.start) })).sorted()
             catalog = try await InventoryAI.buildCatalog(blocks: all,checkIns: days.flatMap { checkIns(day: $0) },existing: existing,days: days,root: root,budget: tokenBudget,apiKey: GuideStore.claudeKey() ?? "")
             try catalog.save(root: root)
+            for process in catalog.processes where existing.processes.first(where: { $0.id == process.id }) != process {
+                if profiles[process.id] != nil { var p = profile(process.id); p.reviewed = false; saveProfile(p,id: process.id) }
+            }
             approved.removeAll() // Changed analysis must be reviewed again before export.
             for day in days {
                 var list = all.filter { InventoryFolder.day($0.start) == day }
@@ -188,10 +198,47 @@ import RecorderCore
     func handover(_ p: InventoryProcess) async {
         guard !processing else { return }; processing = true; defer { processing = false; reload() }
         do {
-            let guides = GuidesFolder.all().filter { url in (try? Guide.load(from: url)).map { $0.title.localizedCaseInsensitiveContains(p.name) || !Set($0.apps).isDisjoint(with: p.apps) } ?? false }.map(\.path)
-            _ = try await InventoryAI.writeHandover(process: p,blocks: InventoryFile.allBlocks(root: root),checkIns: InventoryFolder.days(in: root).flatMap { checkIns(day: $0) },guides: guides,root: root,budget: tokenBudget,apiKey: GuideStore.claudeKey() ?? "")
+            let profile = profiles[p.id] ?? ProcessProfile()
+            let guides = ProcessProfiles.guides(for: profile,available: availableGuides()).map(\.path)
+            _ = try await InventoryAI.writeHandover(process: p,blocks: InventoryFile.allBlocks(root: root),checkIns: InventoryFolder.days(in: root).flatMap { checkIns(day: $0) },guides: guides,root: root,budget: tokenBudget,apiKey: GuideStore.claudeKey() ?? "",profile: profile,hourlyRate: hourlyRate())
             NSPasteboard.general.clearContents(); NSPasteboard.general.setString(InventoryAI.handoverPrompt(p,root: root),forType: .string); message = "Übergabe-Paket erstellt und Auftrag kopiert."
         } catch { self.error = error.localizedDescription }
+    }
+    func profile(_ id: String) -> ProcessProfile { profiles[id] ?? ProcessProfile() }
+    func saveProfile(_ profile: ProcessProfile,id: String) {
+        do {
+            // Reload before saving one entry to retain changes from other windows/tools.
+            var next = try ProcessProfiles.load(root: root); next[id] = profile.sanitized()
+            try ProcessProfiles.save(next,root: root); profiles = next
+            let directory = InventoryFolder.process(id,root: root)
+            for file in ["handover.json","handover.md"] {
+                let url = directory.appendingPathComponent(file)
+                if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+            }
+            approved.remove(id); error = nil
+        } catch { self.error = error.localizedDescription }
+    }
+    func linkGuide(_ url: URL,to id: String) {
+        var p = profile(id)
+        guard !p.guidePaths.contains(url.path) else { return }
+        if let guide = try? Guide.load(from: url) {
+            let prior = profile(ProcessProfiles.guideKey(guide))
+            if p.roi == ProcessROIInputs() { p.roi = prior.roi }
+            if p.goal.isEmpty { p.goal = prior.goal }; if p.trigger.isEmpty { p.trigger = prior.trigger }
+            if p.inputs.isEmpty { p.inputs = prior.inputs }; if p.outputs.isEmpty { p.outputs = prior.outputs }
+            if p.exceptions.isEmpty { p.exceptions = prior.exceptions }; if p.success.isEmpty { p.success = prior.success }
+        }
+        for other in Array(profiles.keys) where other != id && profile(other).guidePaths.contains(url.path) { unlinkGuide(url,from: other) }
+        p.guidePaths.append(url.path); p.reviewed = false; saveProfile(p,id: id)
+    }
+    func unlinkGuide(_ url: URL,from id: String) {
+        var p = profile(id); p.guidePaths.removeAll { $0 == url.path }; p.reviewed = false; saveProfile(p,id: id)
+    }
+    func updateHourlyRate(_ rate: Double) {
+        guard rate.isFinite,rate >= 0,rate <= 1_000_000 else { return }
+        catalog.hourlyRate = rate
+        for i in catalog.processes.indices { catalog.processes[i].euroPerMonth = catalog.processes[i].minutesPerWeek/60*52/12*rate }
+        do { try catalog.save(root: root) } catch { self.error = error.localizedDescription }
     }
     func cleanup() {
         let day = InventoryFolder.day(); guard lastCleanup != day else { return }; lastCleanup = day

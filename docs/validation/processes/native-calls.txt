@@ -1,0 +1,7 @@
+PASS: library – create (reserved refused), move, open take follows move and folder rename, trash needs confirm, foreign path refused, dissolve
+PASS: shared process scenario, MCP edits invalidate handover/brief and reset review without losing ROI
+PASS: guides – title/text/note, redaction add/remove with image regeneration, delete step, empty guide and foreign path refused
+PASS: meetings – delete needs confirm, stop without a call refused
+PASS: recorder devices/configure, storage status, settings get/set with validation, unknown op refused
+SKIP: sharing (no --share-connection)
+PASS: app calls end to end

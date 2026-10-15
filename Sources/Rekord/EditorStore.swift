@@ -130,7 +130,7 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         self.captureRoot = captureRoot
         meetings = MeetingStore(root: meetingsRoot ?? MeetingsFolder.url,detect: !CommandLine.arguments.contains("--exit-after-diagnostics"))
         guides = GuideStore(root: guidesRoot ?? GuidesFolder.url)
-        inventory = InventoryStore()
+        inventory = InventoryStore(root: captureRoot?.appendingPathComponent("Inventur") ?? InventoryFolder.url,persistent: captureRoot == nil)
         if !CommandLine.arguments.contains("--exit-after-diagnostics"), RecordingsFolder.migrateLegacy() {
             UserDefaults.standard.set((UserDefaults.standard.stringArray(forKey: "recentProjects") ?? []).map(RecordingsFolder.migratedPath),forKey: "recentProjects")
         }
@@ -173,6 +173,12 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         inventory.onChange = { [weak self] in self?.writeStatus() }
         inventory.hourlyRate = { [weak self] in self?.guides.hourlyRate ?? 50 }
         inventory.activate()
+        guides.inventory = inventory
+        inventory.availableGuides = { [weak self] in self?.guides.guides ?? [] }
+        guides.canStart = { [weak self] in self.map { !$0.busy && $0.meetings.phase == .idle } ?? false }
+        guides.onProcessed = { [weak self] url,id in
+            if let id { self?.inventory.linkGuide(url,to: id) }
+        }
         guides.microphoneID = { [weak self] in self?.microphoneID ?? "" }
         guides.onPhaseChange = { [weak self] in self?.updateHotKeys(); self?.objectWillChange.send(); if self?.guides.phase != .idle { self?.inventory.checkIn.cancel() } }
         guides.bringForward = { [weak self] in self?.showGuides() }
@@ -268,7 +274,7 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     func showGuides() {
         guard !busy else { return }
         if hudActive { closeRecorder() }
-        pause(); workspace = .guides; updateMonitor(); bringMainWindowForward()
+        pause(); inventory.hubTab = 2; workspace = .inventory; updateMonitor(); bringMainWindowForward()
     }
     func showInventory() {
         guard !busy else { return }; if hudActive { closeRecorder() }

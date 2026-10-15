@@ -235,7 +235,9 @@ extension EditorStore {
             switch op {
             case "guide.rewrite": guides.rewriteTexts(url)
             case "guide.rebuild": guides.rebuild(url)
-            default: guides.writeBrief(url,frequency: a.number("frequency_per_week") ?? 0)
+            default:
+                if let frequency = a.number("frequency_per_week"),let guide = guides.load(url) { try guides.setFrequency(frequency,for: guide,url: url) }
+                guides.writeBrief(url)
             }
             return ["started": true,"guide": url.path,"hint": "get_guide zeigt das Ergebnis, sobald es fertig ist."]
         case "guide.share":
@@ -419,7 +421,7 @@ extension EditorStore {
         for i in Set(deletions).sorted(by: >) { guide.steps.remove(at: i); images = true }
         guard !guide.steps.isEmpty else { throw CallError("Eine Anleitung braucht mindestens einen Schritt.") }
         if images { try await GuideImages.generate(&guide,in: url) }
-        try guide.save(to: url); guides.revision += 1
+        try guides.persist(guide,at: url); guides.revision += 1
         return ["guide": url.path,"title": guide.title,"steps": guide.steps.count,"images_regenerated": images]
     }
     private func policyJSON(_ policy: Storage.Policy) -> [String: Any] {

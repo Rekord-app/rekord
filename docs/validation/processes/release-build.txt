@@ -1,0 +1,15 @@
+[0/1] Planning build
+Building for production...
+[0/11] Write sources
+[4/11] Write swift-version--1AB21518FC5DEDBE.txt
+[6/12] Compiling RecorderCore AppCall.swift
+[7/15] Compiling RecorderCoreTests AutoZoomTests.swift
+[7/15] Write Objects.LinkFileList
+[8/15] Linking RecorderCoreTests
+[10/15] Compiling RekordMCP AppTools.swift
+[10/15] Write Objects.LinkFileList
+[11/15] Linking rekord-mcp
+[13/15] Compiling Rekord AccessibilityReader.swift
+[13/15] Write Objects.LinkFileList
+[14/15] Linking Rekord
+Build complete! (77.57s)

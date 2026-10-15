@@ -87,14 +87,22 @@ public struct ProcessCatalog: Codable, Equatable, Sendable {
     }
     public static func merge(existing: Self,update: Self) -> Self {
         var result = update; result.rejectedNames = existing.rejectedNames
+        var usedIDs = Set<String>()
         for i in result.processes.indices {
-            if let old = existing.processes.first(where: { $0.id == result.processes[i].id || $0.name.localizedCaseInsensitiveCompare(result.processes[i].name) == .orderedSame || !Set($0.occurrences).isDisjoint(with: result.processes[i].occurrences) }) {
-                result.processes[i].id = old.id
-                result.processes[i].occurrences = Array(Set(old.occurrences + result.processes[i].occurrences)).sorted()
-            }
+            let item = result.processes[i]
+            let candidates = existing.processes.filter { !usedIDs.contains($0.id) }
+            let match = candidates.first { $0.id == item.id } ?? candidates.first { $0.name.localizedCaseInsensitiveCompare(item.name) == .orderedSame } ?? candidates.max(by: { Set($0.occurrences).intersection(item.occurrences).count < Set($1.occurrences).intersection(item.occurrences).count }).flatMap { Set($0.occurrences).isDisjoint(with: item.occurrences) ? nil : $0 }
+            if let match { result.processes[i].id = match.id }
+            if usedIDs.contains(result.processes[i].id) { result.processes[i].id = "p-" + UUID().uuidString.lowercased() }
+            usedIDs.insert(result.processes[i].id)
         }
-        let ids = Set(result.processes.map(\.id))
-        result.processes += existing.processes.filter { !ids.contains($0.id) }
+        // A complete re-clustering may split a process. Keep IDs unique and never put one
+        // observed block back into two processes by re-adding the previous assignment.
+        let assigned = Set(result.processes.flatMap(\.occurrences))
+        for var old in existing.processes where !usedIDs.contains(old.id) {
+            old.occurrences.removeAll { assigned.contains($0) }
+            if !old.occurrences.isEmpty { result.processes.append(old) }
+        }
         result.processes.removeAll { p in result.rejectedNames.contains { $0.localizedCaseInsensitiveCompare(p.name) == .orderedSame } }
         return result
     }

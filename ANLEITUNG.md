@@ -91,7 +91,7 @@ Tipps:
 
 ### Anleitungen: Abläufe dokumentieren
 
-Seitenleiste **Anleitungen** → **Anleitung aufnehmen**.
+Seitenleiste **Prozesse** → **Anleitungen** → **Anleitung aufnehmen**. Du kannst auf der Übersicht auch direkt **Ablauf aufnehmen** wählen.
 
 1. Den Ablauf ganz normal durchklicken und dabei laut sagen, was du tust und warum („Jetzt auf Neue Rechnung, die Kundennummer steht im CRM“).
 2. **Anleitung fertig** im schwebenden Controller klicken. Nach wenigen Sekunden stehen die Schritte mit Bildern in der App.
@@ -169,15 +169,23 @@ Die Liste aller Werkzeuge steht in [docs/MCP.md](docs/MCP.md). Nach einem Update
 
 Aufnahmen liegen als `.rekord`-Ordner unter `~/Movies/Rekord`. Ältere Aufnahmen (`.focusrec`, Ordner „Focus Recorder“) zieht die App beim ersten Start automatisch dorthin um und öffnet sie weiter. Aufnahmen werden nie in Git eingecheckt.
 
-## Inventur: Was mache ich eigentlich den ganzen Tag?
+## Prozesse: Entdecken, erklären und sinnvoll automatisieren
 
-1. Öffne **Inventur** in der Seitenleiste. Unter **Einstellungen** prüfst du ausgeschlossene Apps, Rückfragen (Standard acht), Aufbewahrung, Tagesbudget und Stundensatz. Den Claude-Schlüssel findest du in den allgemeinen Rekord-Einstellungen. Für brauchbaren Kontext braucht Rekord **Bedienungshilfen** und **Bildschirmaufnahme** unter Datenschutz & Sicherheit.
-2. **Inventur starten**. Rekord sammelt lokal alle fünf Sekunden Kontext. Die Menüleiste bietet jederzeit Pause für 15 Minuten, eine Stunde oder bis morgen. Ohne Bedienungshilfen gibt es nur App-Namen.
+1. Öffne **Prozesse** in der Seitenleiste. Unter **Einstellungen** prüfst du ausgeschlossene Apps, Rückfragen (Standard acht), Aufbewahrung, Tagesbudget und Stundensatz. Den Claude-Schlüssel findest du in den allgemeinen Rekord-Einstellungen. Für brauchbaren Kontext braucht Rekord **Bedienungshilfen** und **Bildschirmaufnahme** unter Datenschutz & Sicherheit.
+2. **Entdecken starten**. Rekord sammelt lokal alle fünf Sekunden Kontext. Die Menüleiste bietet jederzeit Pause für 15 Minuten, eine Stunde oder bis morgen. Ohne Bedienungshilfen gibt es nur App-Namen.
 3. Gelegentlich erscheint eine kurze Rückfrage: **Sprechen** → **Fertig**, alternativ **Tippen**, **Später** oder **Heute nicht mehr**. Sprache wird lokal transkribiert (macOS 26), höchstens 60 Sekunden. Während Calls/Aufnahmen erscheinen keine Fragen.
-4. Unter **Tag** erscheinen nach der Auswertung Arbeitsblöcke. **Ansehen** zeigt lokale Bilder und Antworten. **Löschen** entfernt den Block samt zugehörigem Rohmaterial.
-5. **Jetzt auswerten** erstellt die Prozess-Liste. Sonst läuft sie abends (Standard 18:30). Reihenfolge nach Euro-Arbeitswert pro Monat: Das ist eine Hochrechnung aus beobachteten Arbeitstagen, keine versprochene Ersparnis.
-6. Öffne einen Prozess, prüfe Schritte, offene Fragen und Automatisierbarkeit. **Kein Prozess** merkt sich die Ablehnung. **Als Anleitung aufnehmen** startet eine bewusste Vormach-Aufnahme mit dem Prozessnamen.
-7. **An Claude Code übergeben** erstellt das Übergabe-Paket und kopiert den Auftrag. In Claude Code einfügen; `rekord`-MCP liefert Kontext und Beispiele. Entwürfe bleiben inaktiv, Zugangsdaten Platzhalter. Der Workspace-Skill `prozess-automatisieren` ergänzt zehn Eval-Läufe.
-8. **Für ein Team nutzen** verlangt deine eigene Zustimmung beim Start. Prüfe und ändere Name, Beschreibung und Schritte jedes Prozesses, hake die gewünschten Prozesse ab und exportiere **Prozess-Liste für mein Unternehmen**. Du erhältst lokale JSON-/Markdown-Dateien, keinen automatischen Upload.
+4. Unter **Tagesverlauf** erscheinen nach der Auswertung Arbeitsblöcke. **Ansehen** zeigt lokale Bilder und Antworten. **Löschen** entfernt den Block samt zugehörigem Rohmaterial.
+5. **Auswerten** erstellt die Prozess-Liste. Sonst läuft sie abends (Standard 18:30). Die Übersicht priorisiert das bearbeitbare ROI-Szenario. In der Prozess-Liste kannst du auch nach beobachtetem Arbeitswert sortieren; dieser ist noch keine Ersparnis.
+6. Öffne einen Prozess, prüfe Schritte, offene Fragen und Automatisierbarkeit. **Kein Prozess** merkt sich die Ablehnung. **Ablauf vormachen** startet eine bewusste Vormach-Aufnahme mit dem Prozessnamen und verknüpft sie anschließend. Bestehende Anleitungen verknüpfst du über das Menü. Ergänze Ziel, Auslöser, Eingaben, Ergebnis, Sonderfälle und Erfolgskriterium; diese Angaben bleiben bei erneuter Auswertung erhalten.
+7. **Übergabe-Paket für Claude Code** erstellt das Paket aus Arbeitsblöcken, ausdrücklich verknüpften Anleitungstexten und deinen Ergänzungen und kopiert den Auftrag. In Claude Code einfügen; `rekord`-MCP liefert Kontext und Beispiele. Entwürfe bleiben inaktiv, Zugangsdaten Platzhalter. Der Workspace-Skill `prozess-automatisieren` ergänzt zehn Eval-Läufe.
+8. **Für ein Team nutzen** verlangt deine eigene Zustimmung beim Start. Prüfe und ändere Name, Beschreibung und Schritte jedes Prozesses, hake die gewünschten Prozesse ab und exportiere **Freigegebene Prozesse exportieren**. Du erhältst lokale JSON-/Markdown-Dateien, keinen automatischen Upload.
 
 Details zu Daten, Grenzen der Maskierung und Vorlage für Mitarbeiter: [Inventur-Datenschutz](docs/inventur-datenschutz.md). Lass die Inventur zuerst einen kontrollierten Tag laufen und bewerte die Prozess-Liste, bevor du dich auf Kennzahlen verlässt.
+
+### Den ROI realistisch einschätzen
+
+Öffne einen Prozess oder eine Anleitung und die Karte **Was könnte dir dieser Ablauf bringen?**. Unter **Dauer, Häufigkeit und Kosten anpassen** trägst du die normale Arbeitsdauer ein (eine erklärende Aufnahme dauert oft länger), Durchläufe pro Woche, Prüfzeit, Einrichtungskosten und laufende Kosten. Einrichtungskosten umfassen auch die eigene Umsetzungszeit. Der Stundensatz steht in den Einstellungen.
+
+Der Regler startet mit einer ausdrücklich gekennzeichneten Annahme von 50 %. Passe ihn an die tatsächlich automatisierbaren Schritte an. Die Rechnung zieht menschliche Prüfung zusätzlich ab. Kosten bleiben unbekannt, bis du sie einträgst; 0 € ist eine bewusste Angabe. Beispiel: 10 Minuten × 50 % minus 1 Minute Prüfung, fünfmal pro Woche, bei 60 €/h ergeben rund 87 € Kapazitätswert pro Monat. Nach 20 € Betriebskosten bleiben rund 67 €; 200 € Einrichtung amortisieren sich rechnerisch nach drei Monaten. Das setzt voraus, dass du die freie Zeit sinnvoll nutzt.
+
+Verknüpfte Anleitung und Prozess teilen dieselbe Rechnung. **So holst du mehr heraus** bietet die Kurz-Anleitung: erst einen klaren Ablauf wählen, beim Vormachen Ziel und Entscheidungen erklären, dann Ausnahmen und Testfälle ergänzen und die Annahmen prüfen. Die Übergabe benennt fehlende Informationen. Änderungen am Steckbrief, Anleitungstext oder Stundensatz erfordern ein neues Übergabe-Paket.

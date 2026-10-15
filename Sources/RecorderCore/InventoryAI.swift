@@ -97,22 +97,40 @@ public enum InventoryAI {
     public struct Handover: Codable {
         public var goal: String, trigger: String, steps: [String], systems: [String], accessPlaceholders: [String], examples: [String], exceptions: [String], openQuestions: [String], successCriteria: [String], method: String, tools: [String], effort: String, humanReview: [String], guides: [String]
         public func markdown() -> String {
-            var lines = ["# Übergabe-Paket", "", goal, "", "Auslöser: \(trigger)", "", "## Schritte", ""] + steps.enumerated().map { "\($0.offset+1). \($0.element)" }
+            var lines = ["# Übergabe-Paket", "", goal, "", "Auslöser: \(trigger)", "", "## Schritte", ""] + steps.enumerated().map { "\($0.offset+1). \($0.element.replacingOccurrences(of: #"^\s*\d+[.)]\s*"#,with: "",options: .regularExpression))" }
             for (title,values) in [("Systeme",systems),("Zugänge (Platzhalter)",accessPlaceholders),("Beispiele",examples),("Sonderfälle",exceptions),("Offene Fragen",openQuestions),("Erfolgskriterien",successCriteria),("Werkzeuge",tools),("Bleibt beim Menschen",humanReview),("Anleitungen",guides)] { lines += ["", "## \(title)", ""] + values.map { "- \($0)" } }
             return (lines + ["", "Methode: \(AutomationBrief.methodLabel(method)) · Aufwand: \(effort)", "Entwurf bleibt inaktiv; keine echten Zugangsdaten."]).joined(separator: "\n")
         }
     }
-    public static func writeHandover(process: InventoryProcess,blocks: [InventoryBlock],checkIns: [InventoryCheckIn],guides: [String],root: URL,budget limit: Int = 400000,apiKey: String) async throws -> Handover {
-        let schema = object(["goal": string,"trigger": string,"steps": strings,"systems": strings,"accessPlaceholders": strings,"examples": strings,"exceptions": strings,"openQuestions": strings,"successCriteria": strings,"method": string,"tools": strings,"effort": string,"humanReview": strings,"guides": strings])
+    public static func writeHandover(process: InventoryProcess,blocks: [InventoryBlock],checkIns: [InventoryCheckIn],guides: [String],root: URL,budget limit: Int = 400000,apiKey: String,profile: ProcessProfile = ProcessProfile(),hourlyRate: Double = 50) async throws -> Handover {
+        let schema = object(["goal": string,"trigger": string,"steps": strings,"systems": strings,"accessPlaceholders": strings,"examples": strings,"exceptions": strings,"openQuestions": strings,"successCriteria": strings,"method": ["type": "string","enum": ["api","n8n","triggerdev","claudeCode","browserAgent","human"]],"tools": strings,"effort": ["type": "string","enum": ["S","M","L"]],"humanReview": strings,"guides": strings])
+        let source = try handoverSource(process: process, profile: profile, guides: guides, hourlyRate: hourlyRate)
         let relevant = blocks.filter { process.occurrences.contains($0.id) }
-        let request = try request(model: "claude-opus-5-5",effort: "high",schema: schema,instruction: "Erstelle ein umsetzbares Übergabe-Paket. Alle beobachteten Schritte abdecken. Zugänge nur als Platzhalter, keine erfundenen APIs. Erfolgskriterien sind konkrete Testfälle; menschliche Freigabe ausdrücklich nennen. Nutze ausschließlich die gelieferten Anleitungen.",
-                                  payload: ["process": try JSONSerialization.jsonObject(with: Guide.encoder.encode(process)),"examples": relevant.map { ["id": $0.id,"time": $0.start.ISO8601Format(),"activity": $0.activity,"object": $0.object,"goal": $0.goal] },"answers": checkIns.filter { process.occurrences.contains($0.blockID) }.map(\.answer),"guides": guides])
+        let request = try request(model: "claude-opus-5-5",effort: "high",schema: schema,instruction: "Erstelle ein umsetzbares Übergabe-Paket. Alle beobachteten Schritte abdecken. Zugänge nur als Platzhalter, keine erfundenen APIs. Erfolgskriterien sind konkrete Testfälle; menschliche Freigabe ausdrücklich nennen. Nutze die konkreten Schritte, Erläuterungen und Warnungen der verknüpften Anleitungen. Menschliche Ergänzungen benennen Ziel, Ausnahmen und Abnahmekriterien; Widersprüche zur Beobachtung offen aufführen. Aufnahmedauer kann Erklärzeit enthalten. ROI-Annahmen sind eine Szenario-Rechnung, keine garantierte Ersparnis. Beschreibe für jeden Schritt Eingabe, Ausgabe und Fehlerfall. Nutze ausschließlich die gelieferten Anleitungen.",
+                                  payload: ["process": try JSONSerialization.jsonObject(with: Guide.encoder.encode(process)),"examples": relevant.map { ["id": $0.id,"time": $0.start.ISO8601Format(),"activity": $0.activity,"object": $0.object,"goal": $0.goal] },"answers": checkIns.filter { process.occurrences.contains($0.blockID) }.map(\.answer),"guides": guideEvidence(paths: guides),"humanContext": profile.context,"roiAssumptions": try JSONSerialization.jsonObject(with: Guide.encoder.encode(profile.roi)),"hourlyRate": hourlyRate])
         let data = try await budget.request(request,root: root,budget: limit,apiKey: apiKey)
         let decoded = try ClaudeAPI.decode(Handover.self,from: data)
         var h = try JSONDecoder().decode(Handover.self,from: Data(SensitiveText.masked(String(decoding: try JSONEncoder().encode(decoded),as: UTF8.self)).utf8)); h.guides = guides
         let dir = InventoryFolder.process(process.id,root: root)
+        try InventoryFile.write(profile.sanitized(),to: dir.appendingPathComponent("handover-profile.json"))
+        try source.write(to: dir.appendingPathComponent("handover-source.json"),options: .atomic)
         try InventoryFile.write(h,to: dir.appendingPathComponent("handover.json")); try h.markdown().write(to: dir.appendingPathComponent("handover.md"),atomically: true,encoding: .utf8)
         return h
+    }
+    /// Exact text inputs keep old handovers from appearing current after edits or a new hourly rate.
+    public static func handoverSource(process: InventoryProcess,profile: ProcessProfile,guides: [String],hourlyRate: Double) throws -> Data {
+        try JSONSerialization.data(withJSONObject: ["process": JSONSerialization.jsonObject(with: Guide.encoder.encode(process)),
+            "profile": JSONSerialization.jsonObject(with: Guide.encoder.encode(profile.sanitized())),
+            "guides": guideEvidence(paths: guides),"hourlyRate": hourlyRate],options: [.sortedKeys])
+    }
+    public static func guideEvidence(paths: [String]) -> [[String: Any]] {
+        paths.compactMap { path in
+            guard let guide = try? Guide.load(from: URL(fileURLWithPath: path)) else { return nil }
+            return ["id": guide.id,"title": SensitiveText.masked(guide.title),"summary": SensitiveText.masked(guide.summary ?? ""),
+                    "steps": guide.steps.prefix(100).enumerated().map { i,s in
+                        ["number": i+1,"text": SensitiveText.masked(s.text),"explanation": SensitiveText.masked(s.note ?? ""),"spoken": SensitiveText.masked(s.speech ?? "")] as [String: Any]
+                    }]
+        }
     }
     public static func handoverPrompt(_ process: InventoryProcess,root: URL) -> String {
         """

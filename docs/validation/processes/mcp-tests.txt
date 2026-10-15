@@ -1,0 +1,6 @@
+Building for debugging...
+[0/3] Write swift-version--1AB21518FC5DEDBE.txt
+Build of product 'RecorderCoreTests' complete! (0.10s)
+PASS: MCP inventory (6 valid calls, 14 malformed inputs, opt-in snapshot paths)
+PASS: MCP parity – 28 tools listed, sections split/update/delete by id, gradient/image/blur/fine camera, zoom follows cursor again, folders, 14 refusals before the app (incl. delete without explicit target)
+PASS: MCP regressions – no export onto originals (6 paths), no silent overwrite, numeric input errors, server survives, external edits kept

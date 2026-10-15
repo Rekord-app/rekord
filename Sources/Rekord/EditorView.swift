@@ -16,9 +16,9 @@ struct EditorView: View {
                 } else if store.workspace == .meetings {
                     MeetingsView(meetings: store.meetings)
                 } else if store.workspace == .inventory {
-                    InventoryView(inventory: store.inventory)
+                    ProcessesView(inventory: store.inventory,guides: store.guides)
                 } else if store.workspace == .guides {
-                    GuidesView(guides: store.guides)
+                    ProcessesView(inventory: store.inventory,guides: store.guides)
                 } else {
                     EditorTopBar(audiencePresented: $audiencePresented)
                     HStack(spacing: 0) {
@@ -128,9 +128,8 @@ private struct Sidebar: View {
                 nav("Aufnahmen",icon: "rectangle.stack",selected: store.workspace == .record && store.folderFilter == nil,count: store.library.count) { store.showLibrary(folder: nil) }
                     .libraryDrop(store: store,folder: nil)
                 nav("Meetings",icon: "waveform.badge.mic",selected: store.workspace == .meetings,count: meetings.meetings.count) { store.showMeetings() }
-                nav("Inventur",icon: "chart.bar.doc.horizontal",selected: store.workspace == .inventory,count: nil) { store.showInventory() }
+                nav("Prozesse",icon: "square.stack.3d.up",selected: store.workspace == .inventory || store.workspace == .guides,count: store.inventory.catalog.processes.count) { store.showInventory() }
                 nav("Video-Angebote",icon: "paperplane",selected: false,count: nil) { store.showVideoOffers = true }
-                nav("Anleitungen",icon: "list.number",selected: store.workspace == .guides,count: store.guides.guides.count) { store.showGuides() }
             }
             if store.project != nil {
                 VStack(alignment: .leading,spacing: 6) {

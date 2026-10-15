@@ -61,7 +61,11 @@ check(saved["name"] == "external change" and abs(saved["style"]["padding"] - 0.1
 for name,args in [("inventory_status",{}),("list_processes",{}),("list_processes",{"min_euro":100,"automatable":"ja","query":"Update"}),("get_process",{"process":"p-fixture"}),("get_process",{"process":"Kunden-Update","include_snapshots":True}),("get_inventory_day",{"date":"2026-10-14"})]:
     result=tool(name,**args); check(not result.get("isError"),f"{name} valid: {result}")
 result=tool("get_process",process="p-fixture")
-check("snapshots" not in json.loads(result["content"][0]["text"]), "snapshots must be opt-in")
+detail=json.loads(result["content"][0]["text"])
+check("snapshots" not in detail, "snapshots must be opt-in")
+check(detail["guides"] == [] and detail["guide_evidence"] == [], "no accidental same-app guide links")
+check(detail["roi_scenario"]["scenarioFraction"] == 0.5 and "monthlyNetValue" not in detail["roi_scenario"], "ROI scenario leaves costs unknown")
+check(detail["readiness"]["observed_runs"] == 1 and "profile" in detail, "process context and evidence exposed")
 for name,args in [("list_processes",{"min_euro":v}) for v in [True,"10",-1,1e100,None]] + [("list_processes",{"automatable":1}),("list_processes",{"automatable":"yes"}),("list_processes",{"query":42}),("get_process",{"process":"missing"}),("get_process",{"process":42}),("get_process",{"process":"p-fixture","include_snapshots":1}),("get_inventory_day",{"date":"2026-02-30"}),("get_inventory_day",{"date":"../private"}),("get_inventory_day",{"date":10})]:
     check(tool(name,**args).get("isError"),f"inventory invalid: {name} {args}")
 print("PASS: MCP inventory (6 valid calls, 14 malformed inputs, opt-in snapshot paths)")

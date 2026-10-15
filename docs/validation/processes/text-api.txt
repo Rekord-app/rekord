@@ -1,0 +1,83 @@
+PASS echte Text-API: verknüpfte Anleitung + menschlicher Steckbrief + ROI-Szenario.
+Schritte: 6, Ausnahmen: 4, Erfolgskriterien: 6.
+Tokens: 6589, Request-Bytes: 4173.
+
+# Übergabe-Paket
+
+Den wöchentlichen Projektstand der Testfirma sachlich aus einer lokalen JSON-Aufgabenliste als lokalen E-Mail-Entwurf zusammenfassen (Erledigt, Offen, Nächste Schritte) – verlässlich, ohne erfundene Fakten und ohne Versand.
+
+Auslöser: Freitag nach Projektprüfung (Taktung unklar: Daten nennen zusätzlich 5 Läufe pro Woche)
+
+## Schritte
+
+1. Schritt 0 – Vorbereitung/Aufräumen: Eingabe: {{AUSGABEORDNER_ENTWURF}}. Ausgabe: Ordner ohne alte EML aus früheren Läufen (bzw. alte EML entfernt/verschoben, bevor ein neuer Lauf entscheidet). Fehlerfall: Alte EML kann nicht entfernt werden → Abbruch mit needs_input, da sonst eine veraltete Datei als aktuelles Ergebnis missverstanden werden könnte.
+2. Schritt 1 – Aufgaben lesen (Anleitung Schritt 1): Eingabe: lokale JSON-Datei unter {{PFAD_AUFGABEN_JSON}} mit erledigten und offenen Aufgaben der Testfirma. Ausgabe: validierte Liste der Aufgaben mit Status erledigt/offen. Fehlerfall: Datei fehlt oder ist nicht lesbar/kein gültiges JSON → stoppen, nachfragen, Status needs_input, kein Entwurf, keine EML im Ausgabeordner.
+3. Schritt 2 – Plausibilität prüfen (menschliche Ergänzung): Eingabe: Aufgabenliste aus Schritt 1. Ausgabe: bestätigte widerspruchsfreie Liste, jede Aufgabe genau einmal. Fehlerfall: widersprüchliche Aufgaben (z. B. gleiche Aufgabe erledigt und offen) → kein Entwurf, Status needs_input mit Nennung der betroffenen Aufgaben.
+4. Schritt 3 – Status zusammenfassen (Anleitung Schritt 2): Eingabe: geprüfte Aufgabenliste. Ausgabe: sachlicher Text mit drei getrennten Abschnitten Erledigt, Offen, Nächste Schritte; nur Angaben aus der Datei. Fehlerfall: Eine Aufgabe fehlt, erscheint doppelt oder es tauchen nicht belegte Angaben auf → Zusammenfassung verwerfen, kein Entwurf speichern, needs_input.
+5. Schritt 4 – Entwurf ablegen (Anleitung Schritt 3): Eingabe: Zusammenfassung, {{EMPFAENGER_PLATZHALTER}}, {{BETREFF_VORLAGE}}. Ausgabe: lokale E-Mail-Entwurfsdatei (EML) in {{AUSGABEORDNER_ENTWURF}}; es wird nichts gesendet. Fehlerfall: Speichern schlägt fehl → keine Teil-/Restdatei hinterlassen, Fehler melden; ein Versand findet in keinem Fall statt.
+6. Schritt 5 – Menschliche Freigabe: Eingabe: gespeicherter Entwurf. Ausgabe: freigegebener Entwurf (manueller Versand nur durch Menschen, außerhalb der Automatisierung). Fehlerfall: Prüfer findet Fehler → Entwurf verwerfen, Quelldatei korrigieren lassen, Lauf neu starten.
+
+## Systeme
+
+- Aufgabenliste (als lokale JSON-Datei)
+- Mail (nur lokaler Entwurf, kein Versand)
+
+## Zugänge (Platzhalter)
+
+- {{PFAD_AUFGABEN_JSON}}: Pfad zur lokalen JSON-Datei mit den erledigten und offenen Aufgaben der Testfirma
+- {{AUSGABEORDNER_ENTWURF}}: lokaler Ordner, in dem der E-Mail-Entwurf (z. B. EML) abgelegt wird
+- {{EMPFAENGER_PLATZHALTER}}: Empfängeradresse für den Entwurf; nicht beobachtet, nur als Platzhalter
+- {{BETREFF_VORLAGE}}: Betreffzeile des Entwurfs; nicht beobachtet, nur als Platzhalter
+
+## Beispiele
+
+- Keine beobachteten Beispiele in den Daten.
+- Testfall aus den menschlichen Erfolgskriterien: Quelldatei mit drei erledigten und zwei offenen Aufgaben; erwarteter Entwurf enthält alle fünf Aufgaben genau einmal und keine erfundenen Angaben.
+- Testfall aus den menschlichen Ausnahmen: Quelldatei fehlt; erwartetes Ergebnis ist needs_input, kein Entwurf und keine alte EML im Ausgabeordner.
+
+## Sonderfälle
+
+- Quelldatei fehlt oder ist nicht lesbar: stoppen, nachfragen, Status needs_input, kein Entwurf erzeugen (Anleitung Schritt 1 und menschliche Ergänzung).
+- Fehlende Quelldatei: eine eventuell vorhandene alte EML aus einem früheren Lauf darf nicht zurückbleiben (menschliche Ergänzung).
+- Widersprüchliche Aufgaben (z. B. dieselbe Aufgabe gleichzeitig erledigt und offen): kein Entwurf, Status needs_input (menschliche Ergänzung); genaue Definition von 'widersprüchlich' ist unklar.
+- Jeder Versandversuch ist ausgeschlossen: Es wird nur lokal gespeichert, nie gesendet (Anleitung Schritt 3).
+
+## Offene Fragen
+
+- Welches Schema hat die JSON-Datei (Feldnamen für Titel, Status, ggf. Datum/Projekt)?
+- Woher stammen die 'Nächste Schritte': nur aus den offenen Aufgaben abgeleitet oder aus einem eigenen Feld? Ableitung darf keine Fakten erfinden.
+- Was gilt konkret als 'widersprüchliche Aufgaben' (Duplikate, doppelter Status, fehlender Status)?
+- Widerspruch zur Taktung: Trigger 'Freitag nach Projektprüfung' und Beschreibung 'wöchentlich' vs. timesPerWeek = 5 bzw. runsPerWeek = 5. Wie oft läuft der Prozess tatsächlich?
+- Ausgabeformat und Ablageort des Entwurfs: EML-Datei im Dateisystem oder Entwurf in der Mail-App? Die menschliche Ergänzung nennt EML.
+- Empfänger, Betreff und Anrede des Entwurfs sind nicht beobachtet.
+- Wie wird der Status needs_input ausgegeben (Datei, Konsolenausgabe, Nachricht)?
+- Gibt es eine API oder Schnittstelle der Aufgabenliste bzw. Mail-App? apiStatus: prüfen – vorerst nur lokale Dateien verwenden.
+
+## Erfolgskriterien
+
+- Test 1: Quelldatei mit drei erledigten und zwei offenen Aufgaben → Entwurf enthält alle fünf Aufgaben genau einmal, drei unter Erledigt, zwei unter Offen, keine erfundenen Angaben.
+- Test 2: Quelldatei fehlt, im Ausgabeordner liegt eine alte EML → Ergebnis needs_input, kein neuer Entwurf und keine alte EML bleibt zurück.
+- Test 3: Quelldatei mit widersprüchlichen Aufgaben (gleiche Aufgabe als erledigt und offen) → Ergebnis needs_input, kein Entwurf.
+- Test 4: In keinem Lauf wird eine E-Mail gesendet; es entsteht ausschließlich eine lokale Entwurfsdatei.
+- Test 5: Abschnitte Erledigt, Offen und Nächste Schritte sind im Entwurf getrennt vorhanden; Nächste Schritte enthalten nur aus der Datei belegbare Inhalte.
+- Test 6: Ein Mensch gibt den Entwurf ausdrücklich frei, bevor er außerhalb der Automatisierung verwendet wird.
+
+## Werkzeuge
+
+- Claude Code
+- Lokales Dateisystem
+- JSON-Parser/-Validierung
+- Erzeugung einer EML-Entwurfsdatei
+
+## Bleibt beim Menschen
+
+- Ausdrückliche menschliche Freigabe: Ein Mensch prüft jeden erzeugten Entwurf auf Vollständigkeit und Korrektheit, bevor er ihn ggf. selbst manuell versendet; die Automatisierung sendet nie.
+- Menschliche Klärung bei Status needs_input (fehlende Quelldatei oder widersprüchliche Aufgaben), bevor ein neuer Lauf gestartet wird.
+- Hinweis: Die ROI-Annahme reviewMinutesPerRun = 0 widerspricht der notwendigen Freigabe; Prüfzeit sollte in der Szenario-Rechnung berücksichtigt werden. Die ROI-Annahmen sind eine Szenario-Rechnung, keine garantierte Ersparnis.
+
+## Anleitungen
+
+- /private/tmp/rekord-process-handover-final/Anleitungen/Testfirma.rekord
+
+Methode: Claude-Code-Skript · Aufwand: M
+Entwurf bleibt inaktiv; keine echten Zugangsdaten.

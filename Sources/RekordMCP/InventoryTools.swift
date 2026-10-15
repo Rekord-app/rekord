@@ -53,8 +53,19 @@ var inventoryTools: [Tool] { [
         }
         let dir = InventoryFolder.process(p.id,root: root)
         var result: [String: Any] = ["process": try inventoryJSON(p),"examples": examples,"checkins": try inventoryJSON(answers),"handover_directory": dir.path]
-        if let h: InventoryAI.Handover = try? InventoryFile.read(dir.appendingPathComponent("handover.json")) { result["handover"] = try inventoryJSON(h); result["guides"] = h.guides }
-        else { result["guides"] = GuidesFolder.all().filter { url in (try? Guide.load(from: url)).map { $0.title.localizedCaseInsensitiveContains(p.name) || !Set($0.apps).isDisjoint(with: p.apps) } ?? false }.map(\.path) }
+        let profile = try ProcessProfiles.load(root: root)[p.id] ?? ProcessProfile()
+        let linked = ProcessProfiles.guides(for: profile,available: GuidesFolder.all()).map(\.path)
+        result["profile"] = try inventoryJSON(profile.sanitized())
+        result["guides"] = linked; result["guide_evidence"] = InventoryAI.guideEvidence(paths: linked)
+        if let roi = ProcessROI(inputs: profile.roi,observedMinutes: p.timesPerWeek > 0 ? p.minutesPerWeek/p.timesPerWeek : nil,observedRuns: p.timesPerWeek > 0 ? p.timesPerWeek : nil,hourlyRate: catalog.hourlyRate) { result["roi_scenario"] = try inventoryJSON(roi) }
+        let readiness = ProcessReadiness(process: p,profile: profile,blocks: blocks,guideCount: linked.count)
+        result["readiness"] = ["observed_runs": readiness.observedRuns,"observed_days": readiness.observedDays,"missing": readiness.missing]
+        if let h: InventoryAI.Handover = try? InventoryFile.read(dir.appendingPathComponent("handover.json")),
+           let captured: ProcessProfile = try? InventoryFile.read(dir.appendingPathComponent("handover-profile.json")),captured == profile.sanitized(),h.guides == linked,
+           let source = try? Data(contentsOf: dir.appendingPathComponent("handover-source.json")),
+           source == (try? InventoryAI.handoverSource(process: p,profile: profile,guides: linked,hourlyRate: catalog.hourlyRate)) {
+            result["handover"] = try inventoryJSON(h); result["handover_status"] = "aktuell"
+        } else { result["handover_status"] = "Bitte im Prozesse-Bereich neu erstellen; noch kein aktuelles Paket zu diesem Steckbrief." }
         if include { result["snapshots"] = snapshots }
         return [text(result)]
     },

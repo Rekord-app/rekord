@@ -3,6 +3,14 @@
 Alle Änderungen an Rekord (bis 1.2.0: „Focus Recorder“). Updaten mit `./scripts/update.sh` (siehe [ANLEITUNG.md](ANLEITUNG.md)).
 Neue Einträge kommen oben dazu; die Version steht in `Resources/Info.plist`.
 
+## 1.14.0 – 15.10.2026 · Prozesse gemeinsam verbessern
+
+- **Ein gemeinsamer Bereich „Prozesse“** für Arbeits-Inventur und Anleitungen: Übersicht, Prozess-Liste, Anleitungen und Tagesverlauf. Zwei klare Einstiege – Arbeit entdecken oder einen Ablauf zeigen – plus kurze Anleitung und konkrete nächste Schritte.
+- **Nachvollziehbarer ROI:** bearbeitbare Dauer und Häufigkeit, automatisierter Zeitanteil, menschliche Prüfzeit, Einrichtungs- und Betriebskosten. Freie Stunden, Kapazitätswert, Amortisation und modellierter Jahres-ROI; unbekannte Kosten bleiben unbekannt, negative Ergebnisse sichtbar.
+- **Mehr Kontext:** Ziel, Auslöser, Eingaben, Ergebnis, Sonderfälle und Erfolgskriterien bleiben bei KI-Neuauswertung erhalten. Anleitungen ausdrücklich verknüpfen oder direkt für einen Prozess aufnehmen; beide Ansichten verwenden dieselbe Rechnung.
+- **Bessere KI-Übergaben:** tatsächliche Anleitungsschritte und Erläuterungen plus menschliche Ergänzungen, Fehlerfälle und Testkriterien. MCP erkennt veraltete Pakete; Textänderungen und Häufigkeit bleiben mit der App synchron. Keine Zuordnung allein anhand gleicher Apps, keine Screenshots an die KI.
+- Anleitungstexte speichern beim Bearbeiten automatisch. Neu erstellte Anleitungen behalten ihre stabile ID und Angaben; KI-Schrittgruppen müssen jeden Schritt genau einmal abdecken. Aufgeteilte Prozesse erhalten eindeutige IDs.
+
 ## 1.13.0 – 15.10.2026 · Claude Code kann alles, was die App kann
 
 - **28 MCP-Werkzeuge statt 19.** Neu: `manage_library` (Ordner, verschieben, Papierkorb), `manage_shares` (Links, Ablauf, Widerruf), `video_offers` (Angebote aus der Vorlage, Statistik, Ablauf), `meeting_control` (starten, stoppen, neu zusammenfassen, Fragen an den Call, löschen), `guide_control` und `edit_guide` (Texte, Schwärzungen, Schritte, PDF, Link), `inventory_control`, `storage`, `settings`.

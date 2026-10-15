@@ -94,8 +94,8 @@ public enum GuideAI {
 
     // MARK: Automation brief
 
-    public static func briefRequestBody(_ guide: Guide) throws -> Data {
-        var context: [String: Any] = ["titel": guide.title,"schritte": stepPayload(guide).enumerated().map { i,item in
+    public static func briefRequestBody(_ guide: Guide,context: String = "") throws -> Data {
+        var context: [String: Any] = ["humanContext": SensitiveText.masked(context),"titel": guide.title,"schritte": stepPayload(guide).enumerated().map { i,item in
             var item = item; item["text"] = guide.steps[i].text; return item
         },"apps": guide.apps,"dauer_aufnahme": timestamp(guide.duration)]
         if let summary = guide.summary { context["zusammenfassung"] = summary }
@@ -133,9 +133,10 @@ public enum GuideAI {
             "firstStep": text("Womit anfangen"),
         ])
     }
-    public static func writeBrief(for guide: Guide,hourlyRate: Double = AutomationBrief.defaultHourlyRate,apiKey: String,session: URLSession = .shared) async throws -> AutomationBrief {
-        let data = try await send(briefRequestBody(guide),apiKey: apiKey,session: session)
+    public static func writeBrief(for guide: Guide,hourlyRate: Double = AutomationBrief.defaultHourlyRate,apiKey: String,session: URLSession = .shared,context: String = "") async throws -> AutomationBrief {
+        let data = try await send(briefRequestBody(guide,context: context),apiKey: apiKey,session: session)
         let answer = try decode(AutomationBrief.Answer.self,from: data)
+        try AutomationBrief.validate(groups: answer.groups,stepCount: guide.steps.count)
         return AutomationBrief(answer: answer,guide: guide,hourlyRate: hourlyRate,model: model)
     }
 
@@ -185,6 +186,13 @@ public struct AutomationBrief: Codable, Equatable, Sendable {
     public var model: String
     public var createdAt: Date
 
+    public static func validate(groups: [Group],stepCount: Int) throws {
+        let ids = groups.flatMap(\.steps)
+        guard stepCount > 0,ids.count == stepCount,Set(ids) == Set(1...stepCount),
+              groups.allSatisfy({ !$0.steps.isEmpty && $0.effortHours.isFinite && $0.effortHours >= 0 }) else {
+            throw SummaryError.invalid("Die KI-Bewertung ordnet Schritte doppelt oder unvollständig zu. Bitte erneut bewerten; es wurde keine Schätzung gespeichert.")
+        }
+    }
     /// Duration of each step: until the next click; the last step until the end of the recording (at most 20 s).
     public static func stepSeconds(_ guide: Guide) -> [Double] {
         guide.steps.indices.map { i in
@@ -237,9 +245,9 @@ public struct AutomationBrief: Codable, Equatable, Sendable {
     /// One line for the share page and the app: „spart ca. 6,5 Std. pro Monat (≈ 325 €)“.
     public var savingLine: String {
         guard let hours = hoursPerMonth, let euro = euroPerMonth else {
-            return "Spart pro Durchlauf etwa \(Self.number(savedMinutesPerRun)) von \(Self.number(minutesPerRun)) Minuten."
+            return "Grobe technische Schätzung: pro Durchlauf bis zu \(Self.number(savedMinutesPerRun)) von \(Self.number(minutesPerRun)) Minuten."
         }
-        return "Spart etwa \(Self.number(hours)) Stunden pro Monat (≈ \(Self.number(euro,digits: 0)) € bei \(Self.number(hourlyRate,digits: 0)) €/Std.)."
+        return "Grobe technische Schätzung: bis zu \(Self.number(hours)) Stunden pro Monat (≈ \(Self.number(euro,digits: 0)) € Arbeitswert bei \(Self.number(hourlyRate,digits: 0)) €/Std., vor Prüfung und Kosten)."
     }
     public func markdown() -> String {
         var lines = ["# Automatisierungs-Brief: \(title)","",summary,"","## Zeitersparnis",""]

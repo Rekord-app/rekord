@@ -74,7 +74,7 @@ struct GuidesView: View {
     }
     private var listHeader: some View {
         VStack(alignment: .leading,spacing: 10) {
-            Text("Anleitungen").font(StudioFont.pageTitle).foregroundStyle(StudioTheme.text)
+            Text("Abläufe dokumentieren").font(StudioFont.pageTitle).foregroundStyle(StudioTheme.text)
             startCard
             if !entries.isEmpty { SearchField(placeholder: "Titel oder App",text: $query) }
         }
@@ -162,8 +162,9 @@ struct GuideDetailView: View {
     @ObservedObject var guides: GuideStore
     @State private var guide: Guide?
     @State private var brief: AutomationBrief?
-    @State private var frequency = 5.0
     @State private var redacting: Int?
+    @State private var pendingSave: Task<Void,Never>?
+    @State private var edited = false
     var body: some View {
         ScrollView {
             VStack(alignment: .leading,spacing: 16) {
@@ -177,6 +178,7 @@ struct GuideDetailView: View {
                     HStack(spacing: 10) { ProgressView().controlSize(.small); Text(guides.progress).font(StudioFont.body).foregroundStyle(StudioTheme.textSecondary) }
                 }
                 if let guide {
+                    if let inventory = guides.inventory { GuideProcessPlanning(guide: guide,url: url,inventory: inventory,guides: guides) }
                     automation(guide)
                     HStack(spacing: 6) { Image(systemName: "list.number").font(.system(size: 10,weight: .semibold)).foregroundStyle(StudioTheme.textTertiary); Text("\(guide.steps.count) Schritte").eyebrow() }.padding(.top,8)
                     ForEach(Array(guide.steps.enumerated()),id: \.element.id) { index,step in stepCard(index,step,count: guide.steps.count) }
@@ -185,16 +187,24 @@ struct GuideDetailView: View {
             }.padding(StudioTheme.gutter).padding(.top,4).frame(maxWidth: 900,alignment: .leading).frame(maxWidth: .infinity,alignment: .leading)
         }
         .safeAreaInset(edge: .top,spacing: 0) { header.padding(.horizontal,StudioTheme.gutter).padding(.top,14).padding(.bottom,6) }
-        .task(id: guides.revision) { load() }
+        .task(id: guides.revision) { if !edited { load() } }
+        .onDisappear { pendingSave?.cancel(); if edited,let guide { guides.save(guide,at: url) } }
         .sheet(item: Binding(get: { redacting.map { RedactTarget(index: $0) } },set: { redacting = $0?.index })) { target in
             if let guide { RedactSheet(url: url,guide: guide,index: target.index) { updated in self.guide = updated; guides.save(updated,at: url,regenerateImages: true); redacting = nil } }
         }
     }
+    private func queueSave() {
+        edited = true; pendingSave?.cancel()
+        pendingSave = Task { @MainActor in
+            do { try await Task.sleep(nanoseconds: 500_000_000) } catch { return }
+            guard let guide else { return }; edited = false; guides.save(guide,at: url)
+        }
+    }
     private func load() {
         guide = guides.load(url); brief = try? AutomationBrief.load(from: url)
-        if let f = guide?.frequencyPerWeek { frequency = f }
     }
     private func update(images: Bool = false,_ change: (inout Guide) -> Void) {
+        pendingSave?.cancel(); edited = false
         guard var current = guide else { return }
         change(&current); guide = current
         guides.save(current,at: url,regenerateImages: images)
@@ -203,7 +213,7 @@ struct GuideDetailView: View {
     private var header: some View {
         HStack(alignment: .top,spacing: 12) {
             VStack(alignment: .leading,spacing: 3) {
-                TextField("Titel",text: Binding(get: { guide?.title ?? "" },set: { value in guide?.title = value }),onCommit: { update { _ in } })
+                TextField("Titel",text: Binding(get: { guide?.title ?? "" },set: { value in guide?.title = value; queueSave() }),onCommit: { update { _ in } })
                     .textFieldStyle(.plain).font(StudioFont.pageTitle).foregroundStyle(StudioTheme.text).accessibilityLabel("Titel der Anleitung")
                 if let guide {
                     HStack(spacing: 8) {
@@ -242,20 +252,13 @@ struct GuideDetailView: View {
             HStack(spacing: 10) {
                 HStack(spacing: 6) { Image(systemName: "bolt").font(.system(size: 10,weight: .semibold)).foregroundStyle(StudioTheme.textTertiary); Text("Automatisierung").eyebrow() }
                 Spacer()
-                HStack(spacing: 6) {
-                    Text("Wie oft pro Woche?").font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary)
-                    TextField("",value: $frequency,format: .number).frame(width: 44).textFieldStyle(.roundedBorder).accessibilityLabel("Durchläufe pro Woche")
-                    Text("×").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
-                    TextField("",value: $guides.hourlyRate,format: .number).frame(width: 48).textFieldStyle(.roundedBorder).accessibilityLabel("Stundensatz in Euro")
-                    Text("€/Std.").font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary)
-                }
-                Button(brief == nil ? "Brief erstellen" : "Neu bewerten") { guides.writeBrief(url,frequency: frequency) }.buttonStyle(PillButtonStyle(height: 28,prominent: brief == nil)).disabled(guides.phase != .idle)
+                Button(brief == nil ? "Brief erstellen" : "Neu bewerten") { guides.writeBrief(url) }.buttonStyle(PillButtonStyle(height: 28,prominent: brief == nil)).disabled(guides.phase != .idle)
             }
             if let brief {
                 Text(brief.summary).font(StudioFont.body).foregroundStyle(StudioTheme.text).textSelection(.enabled).fixedSize(horizontal: false,vertical: true)
                 HStack(spacing: 8) {
                     Image(systemName: "clock.arrow.circlepath").font(.system(size: 12,weight: .semibold)).foregroundStyle(StudioTheme.success)
-                    Text(brief.savingLine).font(.system(size: 14,weight: .semibold)).foregroundStyle(StudioTheme.text)
+                    Text("\(brief.groups.filter { $0.automatable != "nein" }.count) von \(brief.groups.count) Schrittgruppen bieten technische Ansatzpunkte.").font(StudioFont.bodyStrong).foregroundStyle(StudioTheme.text)
                 }
                 VStack(spacing: 6) {
                     ForEach(Array(brief.groups.enumerated()),id: \.offset) { _,group in
@@ -268,9 +271,9 @@ struct GuideDetailView: View {
                         }.frame(maxWidth: .infinity,alignment: .leading).studioInset(padding: 10)
                     }
                 }
-                Text("Brief liegt als automation-brief.md im Ordner. „An Claude Code“ baut daraus einen inaktiven n8n-Entwurf.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
+                Text("Die Bewertung beschreibt die technische Machbarkeit. Nutze für deinen Nutzen und die Amortisation das Szenario oben. Die Übergabe berücksichtigt die gewählte Methode; sie aktiviert nichts.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
             } else {
-                Text("Trag ein, wie oft der Ablauf pro Woche läuft. Claude bewertet dann, welche Schritte sich automatisieren lassen und was das spart.").font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary)
+                Text("Claude bewertet anhand deiner Schritte und Ergänzungen, was sich technisch automatisieren lässt und welche Fragen offen sind. Dauer, Häufigkeit und Kosten stellst du im gemeinsamen Szenario oben ein.").font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary)
             }
         }.studioCard(padding: 16)
     }
@@ -279,9 +282,9 @@ struct GuideDetailView: View {
             HStack(alignment: .top,spacing: 12) {
                 Text("\(index+1)").font(.system(size: 12,weight: .bold,design: .rounded)).foregroundStyle(.white).frame(width: 26,height: 26).background(StudioTheme.accentGradient,in: Circle())
                 VStack(alignment: .leading,spacing: 6) {
-                    TextField("Schritt-Text",text: Binding(get: { guide?.steps[safe: index]?.text ?? "" },set: { value in guide?.steps[index].text = value }),axis: .vertical)
+                    TextField("Schritt-Text",text: Binding(get: { guide?.steps[safe: index]?.text ?? "" },set: { value in guide?.steps[index].text = value; queueSave() }),axis: .vertical)
                         .textFieldStyle(.plain).font(.system(size: 14,weight: .semibold)).foregroundStyle(StudioTheme.text).onSubmit { update { _ in } }.accessibilityLabel("Text von Schritt \(index+1)")
-                    TextField("Tipp (optional)",text: Binding(get: { guide?.steps[safe: index]?.note ?? "" },set: { value in guide?.steps[index].note = value.isEmpty ? nil : value }),axis: .vertical)
+                    TextField("Tipp (optional)",text: Binding(get: { guide?.steps[safe: index]?.note ?? "" },set: { value in guide?.steps[index].note = value.isEmpty ? nil : value; queueSave() }),axis: .vertical)
                         .textFieldStyle(.plain).font(StudioFont.body).foregroundStyle(StudioTheme.textSecondary).onSubmit { update { _ in } }.accessibilityLabel("Tipp zu Schritt \(index+1)")
                     Text(detail(step)).font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary).lineLimit(1)
                 }

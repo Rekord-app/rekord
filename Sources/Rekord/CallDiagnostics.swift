@@ -19,7 +19,8 @@ import RecorderCore
         setenv("REKORD_SUPPORT_ROOT",root.appendingPathComponent("support").path,1)
         defer { unsetenv("REKORD_SUPPORT_ROOT") }
         do {
-            try await check(root: root,fixture: fixture,connection: connection,log: log)
+            // Stabilize /private/tmp versus /tmp before files move; Foundation standardization changes once a source disappears.
+            try await check(root: root.standardizedFileURL,fixture: fixture.standardizedFileURL,connection: connection,log: log)
             log("PASS: app calls end to end")
         } catch { log("FAIL: \(error.localizedDescription)") }
     }
@@ -73,7 +74,7 @@ import RecorderCore
         store.open(b); try require(store.directory?.path == b.path,"open b")
         moved = try await expect("library.move",["recording": b.path,"folder": "Kunden"])
         let bInFolder = URL(fileURLWithPath: moved["recording"] as? String ?? "")
-        try require(store.directory?.standardizedFileURL.path == bInFolder.standardizedFileURL.path && store.project != nil,"open project follows its move")
+        try require(store.directory?.standardizedFileURL.path == bInFolder.standardizedFileURL.path && store.project != nil,"open project follows its move: actual=\(store.directory?.standardizedFileURL.path ?? "nil") expected=\(bInFolder.standardizedFileURL.path) project=\(store.project != nil)")
         _ = try await expect("library.rename_folder",["folder": "Kunden","name": "Kunden 2026"])
         let renamedB = library.appendingPathComponent("Kunden 2026").appendingPathComponent(b.lastPathComponent)
         try require(store.directory?.standardizedFileURL.path == renamedB.standardizedFileURL.path,"open project follows its folder rename")
@@ -87,8 +88,21 @@ import RecorderCore
 
         // Guides
         let before = try Guide.load(from: guide)
+        let processID = "p-call-fixture"
+        store.inventory.catalog.processes = [InventoryProcess(id: processID,name: "Fixture-Prozess")]
+        store.inventory.linkGuide(guide,to: processID)
+        try store.guides.setFrequency(7,for: before,url: guide)
+        try require(store.inventory.profile(processID).roi.runsPerWeek == 7,"MCP frequency uses the shared process scenario")
+        var profile = store.inventory.profile(processID); profile.reviewed = true; store.inventory.saveProfile(profile,id: processID)
+        let handover = InventoryFolder.process(processID,root: store.inventory.root)
+        try files.createDirectory(at: handover,withIntermediateDirectories: true)
+        try "old fixture handover".write(to: handover.appendingPathComponent("handover.md"),atomically: true,encoding: .utf8)
+        try "{}".write(to: guide.appendingPathComponent(GuideFile.brief),atomically: true,encoding: .utf8)
         _ = try await expect("guide.edit",["guide": guide.path,"title": "Geprüfte Anleitung","steps": [["step": 1,"text": "Neuer Text","note": "Hinweis"]],
                                          "add_redactions": [["step": 1,"x": 0.1,"y": 0.1,"width": 0.3,"height": 0.1]]])
+        try require(!files.fileExists(atPath: handover.appendingPathComponent("handover.md").path) && !files.fileExists(atPath: guide.appendingPathComponent(GuideFile.brief).path),"MCP text edit invalidates old handover and brief")
+        try require(!store.inventory.profile(processID).reviewed && store.inventory.profile(processID).roi.runsPerWeek == 7,"MCP edit resets review and preserves ROI assumptions")
+        log("PASS: shared process scenario, MCP edits invalidate handover/brief and reset review without losing ROI")
         var after = try Guide.load(from: guide)
         try require(after.title == "Geprüfte Anleitung" && after.steps[0].text == "Neuer Text" && after.steps[0].note == "Hinweis","guide text")
         try require(after.steps[0].redactions.count == before.steps[0].redactions.count+1,"redaction added")

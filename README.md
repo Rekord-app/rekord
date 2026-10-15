@@ -31,7 +31,7 @@ Du nimmst einfach auf. Rekord legt den Bildschirm auf einen Studio-Hintergrund, 
 
 <br>
 
-## Fünf Modi, eine App
+## Aufnehmen und Arbeit verbessern
 
 <table>
 <tr>
@@ -57,8 +57,8 @@ Nimmt Calls nach Bestätigung auf. Automatik für Zoom, Meet, Teams und FaceTime
 </td>
 <td width="50%" valign="top">
 
-### 📋 Anleitungen
-Ablauf einmal vormachen und erklären – Rekord schreibt die Schritt-für-Schritt-Anleitung mit Screenshots. Als PDF, Markdown oder Link. Plus: Was davon sich automatisieren lässt.
+### 📋 Prozesse
+Arbeits-Inventur und Anleitungen in einem Bereich: wiederkehrende Arbeit entdecken, einen Ablauf vormachen, Zeitgewinn und Kosten durchrechnen und mit konkreten Belegen an Claude Code übergeben.
 
 </td>
 </tr>
@@ -86,11 +86,15 @@ Jeder Klick wird ein Schritt mit Bild. Mustererkennung schwärzt erkannte E-Mail
 
 <br>
 
-## Arbeits-Inventur (experimentell)
+## Prozesse: Entdecken → Erklären → Automatisieren
 
-**Wiederkehrende Arbeit erkennen:** bewusst starten, lokal Arbeitsblöcke sammeln, kurze Rückfragen per Sprache oder Text beantworten und die Prozess-Liste nach Stunden bzw. Euro-Arbeitswert ansehen. „An Claude Code übergeben“ erstellt ein Paket mit Beispielen, offenen Fragen und prüfbaren Erfolgskriterien. Der Eval-Skill testet einen Entwurf mit zehn Fällen; automatischer Versand oder Aktivierung gehören nicht dazu.
+![Prozesse: gemeinsame Übersicht für Arbeits-Inventur und Anleitungen mit Beispieldaten](docs/assets/processes.png)
 
-- **Start:** Seitenleiste → Arbeits-Inventur → Inventur starten. Pause, Fortsetzen und Ausschlüsse jederzeit über die Menüleiste. Eigener Stundensatz, Tokenbudget, Abend-Auswertung und Aufbewahrung in den Einstellungen.
+**Wiederkehrende Arbeit erkennen:** bewusst starten, lokal Arbeitsblöcke sammeln und kurze Rückfragen per Sprache oder Text beantworten. Die Inventur bleibt experimentell. Übersicht, Prozess-Liste, Anleitungen und Tagesverlauf sind jetzt zusammen. Verknüpfe eine Anleitung ausdrücklich mit ihrem Prozess; ergänze Ziel, Eingaben, Sonderfälle und Erfolgskriterien. Deine Angaben bleiben bei erneuter KI-Auswertung erhalten. „An Claude Code übergeben“ erstellt ein Paket mit Beispielen, offenen Fragen und prüfbaren Erfolgskriterien. Der Eval-Skill testet einen Entwurf mit zehn Fällen; automatischer Versand oder Aktivierung gehören nicht dazu.
+
+- **Start:** Seitenleiste → **Prozesse** → **Entdecken starten**. Pause, Fortsetzen und Ausschlüsse jederzeit über die Menüleiste. Eigener Stundensatz, Tokenbudget, Abend-Auswertung und Aufbewahrung in den Einstellungen.
+- **ROI sichtbar:** Dauer, Häufigkeit, automatisierten Anteil, menschliche Prüfung und Kosten anpassen. Rekord berechnet freie Stunden, Kapazitätswert nach Kosten, Amortisation und den modellierten ROI im ersten Jahr. Die voreingestellten 50 % sind eine Annahme, keine KI-Prognose. Unbekannte Kosten zählen nicht als null; Arbeitswert ist keine garantierte Ersparnis.
+- **Mehr herausholen:** „So holst du mehr heraus“ erklärt den Ablauf in vier Schritten. Beginne mit einem klaren Prozess, erkläre Entscheidungen und einen Sonderfall; prüfe anschließend Belege und Annahmen.
 - **Was den Mac verlässt:** ausschließlich maskierter Text zur Claude-API; keine Inventur-Bilder, Videos oder Sprachaufnahmen. Bilder werden lokal verkleinert/geschwärzt. Ohne Bedienungshilfen nur App-Metadaten. Mustererkennung kann vertrauliche Inhalte übersehen: Ausschlüsse vor Verwendung prüfen. [Datenschutz und Team-Nutzung](docs/inventur-datenschutz.md).
 - **Ablage:** `~/Movies/Rekord/Inventur/`; Tagesordner, `prozesse.json/.md`, `Prozesse/<ID>/handover.json/.md`. Bilder standardmäßig 7 Tage, Rohproben 30 Tage. Kein Inventur-Upload an den Share-Server.
 - **Befehle:** `rekord://inventory`, `rekord://inventory-pause?minutes=15`, `rekord://inventory-resume`. **MCP:** `inventory_status`, `list_processes`, `get_process`, `get_inventory_day` ([Beispiele](docs/MCP.md)).

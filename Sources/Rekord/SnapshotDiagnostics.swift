@@ -69,7 +69,7 @@ import RecorderCore
             await snapshot(GuideControllerView(guides: store.guides),size: CGSize(width: 236,height: 92),to: root.appendingPathComponent("6c-guide-controller.png"))
             await snapshot(ShareSettingsView().environmentObject(store),size: CGSize(width: 540,height: 420),to: root.appendingPathComponent("6d-share-settings.png"))
             await snapshot(ShareLibraryView().environmentObject(store),size: CGSize(width: 720,height: 520),to: root.appendingPathComponent("6e-share-library.png"))
-            await snapshot(InventoryView(inventory: store.inventory).environmentObject(store),size: CGSize(width: 1100,height: 740),to: root.appendingPathComponent("7-inventory.png"))
+            await snapshot(ProcessesView(inventory: store.inventory,guides: store.guides).environmentObject(store),size: CGSize(width: 1100,height: 740),to: root.appendingPathComponent("7-inventory.png"))
             store.showRecordingSetup()
         }
         // Setup preview with a synthetic screen, as the live monitor would show it.

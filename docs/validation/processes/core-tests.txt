@@ -1,0 +1,30 @@
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--1AB21518FC5DEDBE.txt
+[1/4] Write sources
+[3/7] Compiling RecorderCoreTests ProcessPlanningTests.swift
+[4/7] Compiling RecorderCoreTests ProjectTests.swift
+[5/7] Emitting module RecorderCoreTests
+Build of product 'RecorderCoreTests' complete! (1.52s)
+PASS: renderer pixels (12 palettes, custom color/gradient/photo/blur, asset loading, padding, corners, cursor, webcam, zoom follow, portrait)
+PASS: GPU Loom orientation/camera/cursor; 1080p composition 424 fps
+PASS: motion blur keeps brightness (mean 231.5 vs 232.0) and softens edges (0.56 vs 0.45)
+PASS: crop presets (menu bar/Dock, centred, ultrawide), borderless 16:9 output, pointer remap
+PASS: cursor tilt only while moving, ring/pulse/off click effects
+PASS: auto-zoom strength, lead, hold, merging, clipping, validation and persistence
+PASS: pauses become cuts (ordering, open pause at Stop, tiny fragments)
+PASS: camera layouts spring in/out; fullscreen, split (landscape + portrait) and hidden placement
+PASS: studio wallpapers deterministic, grain-dithered, drawn by the renderer; custom backdrops still win
+PASS: rename migration (.rekord/.focusrec projects, recordings folder paths)
+PASS: review regressions – export targets (14 aliases refused), command parsing (13 malformed), project opening, conflicting edits
+PASS: storage – usage by area, only idle shared Loom to Trash, idle Studio to reachable archive (openable), open/interrupted/recent/unshared/meetings untouched
+PASS: library – user folders (reserved/hidden skipped), move with numbered clash, recording takes stay, rename incl. case, dissolve, temp paths
+PASS: app calls – private key file, consumed once, op must match, wrong key/stale/missing file refused, strict ids and parser
+PASS: meetings (sentences, merge, persistence, summary request/parse/markdown)
+PASS: guides (step rules, labels, speech, masking, Claude payload text-only, persistence, OCR redaction, PDF)
+PASS: automatic defaults, legacy booking migration, template snapshots, validated atomic save
+PASS: offer capability compatibility, draft validation/idempotency, initial/catch-up notifications and non-rewinding cursor
+PASS: inventory (35 assertions: privacy, merge, blocks, metrics, stable IDs, retention, text-only, budget, schema, team export, commands)
+PASS: process planning (31 assertions: ROI, unknown costs, negative scenarios, persistence, explicit guide links, text-only evidence, step partition, split IDs)
+PASS: guide speech anchors (stretched first word, lone punctuation)
+PASS: 5 core test groups (cuts, validation, zoom, smoothing, persistence)

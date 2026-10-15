@@ -105,6 +105,7 @@ func XCTAssertThrowsError(_ operation: @autoclosure () throws -> Void) { do { tr
         try testGuides()
         try testVideoOffers()
         try await testInventory()
+        try testProcessPlanning()
         testGuideSpeechAnchors()
         if let i = CommandLine.arguments.firstIndex(of: "--background-sheet"), CommandLine.arguments.count > i+2 {
             try dumpBackgroundSheet(to: URL(fileURLWithPath: CommandLine.arguments[i+1]),screen: URL(fileURLWithPath: CommandLine.arguments[i+2]))
