@@ -84,6 +84,7 @@ func details(_ project: Project,_ url: URL) -> [String: Any] {
     result["look"] = [
         "format": style.format.rawValue,"crop": style.crop.map { ["x": round3($0.x),"y": round3($0.y),"width": round3($0.width),"height": round3($0.height)] } as Any,
         "background": style.backdrop.map { "\($0.kind.rawValue)" } ?? style.background.rawValue,
+        "backdrop": style.backdrop.map { ["kind": $0.kind.rawValue,"start": hex($0.start),"end": hex($0.end),"angle": $0.angle,"image": $0.imageFile as Any,"blur": $0.blur] } as Any,
         "padding": round3(style.padding),"corner_radius_px": Int((style.cornerRadius*1080).rounded()),"shadow": round2(style.shadow),
         "motion_blur": round2(style.motionBlur ?? Style.defaultMotionBlur),
         "cursor": ["show": style.showCursor,"size": round2(style.cursorSize),"smoothing_ms": Int(style.smoothing*1000),"tilt": round2(style.cursorTilt ?? Style.defaultCursorTilt),"click_effect": (style.clickEffect ?? .ring).rawValue],
@@ -93,12 +94,33 @@ func details(_ project: Project,_ url: URL) -> [String: Any] {
     ]
     result["zoom_list"] = project.zooms.map { ["id": $0.id.uuidString,"start_s": round2($0.start),"end_s": round2($0.end),"scale": round2($0.scale),"follows_cursor": $0.followsCursor,"focus": ["x": round2($0.focus.x),"y": round2($0.focus.y)]] }
     result["camera_layouts"] = (project.cameraLayouts ?? []).map { ["id": $0.id.uuidString,"layout": $0.layout.rawValue,"start_s": round2($0.start),"end_s": round2($0.end)] }
-    result["sections_list"] = project.cuts.map { ["start_s": round2($0.start),"end_s": round2($0.end)] }
+    result["sections_list"] = project.cuts.map { ["id": $0.id.uuidString,"start_s": round2($0.start),"end_s": round2($0.end)] }
+    if let data = try? Data(contentsOf: url.appendingPathComponent("share.json")), let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       let video = json["video"] as? [String: Any] {
+        result["share"] = ["url": video["url"] as Any,"video_id": video["id"] as Any,"expires_at": video["expiresAt"] as Any]
+    }
     result["clicks_s"] = project.pointer.filter(\.clicked).map { round2($0.time) }
     result["auto_zoom_settings"] = ["scale": project.autoZoom?.scale ?? 2,"lead_s": project.autoZoom?.lead ?? 0.4,"hold_s": project.autoZoom?.hold ?? 1.8]
     return result
 }
 func round2(_ v: Double) -> Double { (v*100).rounded()/100 }
+func hex(_ c: RGB) -> String { String(format: "#%02X%02X%02X",Int((c.red*255).rounded()),Int((c.green*255).rounded()),Int((c.blue*255).rounded())) }
+func rgb(_ hex: String) throws -> RGB {
+    let clean = hex.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
+    guard clean.count == 6, let value = Int(clean,radix: 16) else { throw ToolError(message: "Farbe als #RRGGBB angeben") }
+    return RGB(Double((value >> 16) & 255)/255,Double((value >> 8) & 255)/255,Double(value & 255)/255)
+}
+/// Copies an image into the project as `background-<UUID>.png` (max. 4096 px), like „Bild wählen“ in the app.
+func importBackgroundImage(_ source: URL,into project: URL) throws -> String {
+    guard let input = CGImageSourceCreateWithURL(source as CFURL,nil),
+          let image = CGImageSourceCreateThumbnailAtIndex(input,0,[kCGImageSourceCreateThumbnailFromImageAlways: true,kCGImageSourceCreateThumbnailWithTransform: true,kCGImageSourceThumbnailMaxPixelSize: 4096] as CFDictionary)
+    else { throw ToolError(message: "Bild nicht lesbar: \(source.path)") }
+    let name = "background-\(UUID().uuidString).png"
+    guard let output = CGImageDestinationCreateWithURL(project.appendingPathComponent(name) as CFURL,UTType.png.identifier as CFString,1,nil) else { throw ToolError(message: "Hintergrundbild konnte nicht gespeichert werden.") }
+    CGImageDestinationAddImage(output,image,nil)
+    guard CGImageDestinationFinalize(output) else { throw ToolError(message: "Hintergrundbild konnte nicht gespeichert werden.") }
+    return name
+}
 func round3(_ v: Double) -> Double { (v*1000).rounded()/1000 }
 
 // MARK: Tools
@@ -127,7 +149,7 @@ func integer(_ arguments: [String: Any],_ key: String,in range: ClosedRange<Int>
 }
 func bool(_ arguments: [String: Any],_ key: String) -> Bool? { (arguments[key] as? NSNumber)?.boolValue }
 
-let tools: [Tool] = [
+let tools1: [Tool] = [
     Tool(name: "list_recordings",description: "Listet alle Rekord-Aufnahmen (neueste zuerst) mit Dauer, Format, Zooms und Abschnitten.",properties: [:],required: []) { _ in
         let items = allRecordings().compactMap { url in (try? load(url)).map { summary($0,url) } }
         return [text(items.isEmpty ? ["hint": "Noch keine Aufnahmen in \(recordingsFolder.path)."] as Any : items)]
@@ -149,6 +171,10 @@ let tools: [Tool] = [
             "crop": ["type": "string","enum": ["original","16:9-ohne-menuleiste","16:9-mittig"],"description": "Ausschnitt der Aufnahme."],
             "background": ["type": "string","enum": Background.allCases.map(\.rawValue),"description": "Verlauf-Preset."],
             "background_color": ["type": "string","description": "Einfarbiger Hintergrund als Hex, z. B. #1E1E2E."],
+            "background_gradient": ["type": "object","description": "Eigener Verlauf: start und end als #RRGGBB, angle 0–360 (Standard 45).",
+                                    "properties": ["start": ["type": "string"],"end": ["type": "string"],"angle": ["type": "number"]]],
+            "background_image": ["type": "string","description": "Pfad zu einem eigenen Hintergrundbild (PNG/JPEG/HEIC). Eine Kopie kommt ins Projekt."],
+            "background_blur": ["type": "number","description": "Unschärfe des Hintergrundbilds 0–0.05."],
             "padding": ["type": "number","description": "Rand 0–0.2 (Anteil der kurzen Bildseite)."],
             "corner_radius_px": ["type": "number","description": "Eckenradius in Pixeln bei 1080p (0–160)."],
             "shadow": ["type": "number","description": "0–1"],
@@ -158,6 +184,8 @@ let tools: [Tool] = [
             "show_camera": ["type": "boolean"],"camera_shape": ["type": "string","enum": CameraShape.allCases.map(\.rawValue)],
             "camera_size": ["type": "number","description": "0.1–0.5 der kurzen Bildseite"],
             "camera_position": ["type": "string","enum": ["oben-links","oben-rechts","unten-links","unten-rechts"]],
+            "camera_x": ["type": "number","description": "Feinposition der Kamera, Mitte horizontal 0–1 (wie der Regler in der App)."],
+            "camera_y": ["type": "number","description": "Feinposition der Kamera, Mitte vertikal 0–1 (0 = oben)."],
             "camera_size_while_zoomed": ["type": "number","description": "0.4–1.6 (0.7 = kleiner beim Zoom, >1 = größer)"],
             "camera_border": ["type": "boolean"],"mirror_camera": ["type": "boolean"],
             "camera_aspect": ["type": "string","enum": CameraAspect.allCases.map(\.rawValue),"description": "Proportionen der Kamera (Kreis bleibt rund)."],
@@ -176,6 +204,22 @@ let tools: [Tool] = [
             let clean = hex.trimmingCharacters(in: CharacterSet(charactersIn: "# ")); guard clean.count == 6, let value = Int(clean,radix: 16) else { throw ToolError(message: "Farbe als #RRGGBB angeben") }
             var backdrop = BackdropSettings(kind: .solid); backdrop.start = RGB(Double((value >> 16) & 255)/255,Double((value >> 8) & 255)/255,Double(value & 255)/255); p.style.backdrop = backdrop
         }
+        if let gradient = args["background_gradient"] as? [String: Any] {
+            var backdrop = BackdropSettings(kind: .gradient)
+            guard let start = gradient["start"] as? String, let end = gradient["end"] as? String else { throw ToolError(message: "background_gradient braucht start und end als #RRGGBB") }
+            backdrop.start = try rgb(start); backdrop.end = try rgb(end)
+            if let angle = (gradient["angle"] as? NSNumber)?.doubleValue { backdrop.angle = angle }
+            p.style.backdrop = backdrop
+        }
+        if let path = args["background_image"] as? String {
+            var backdrop = BackdropSettings(kind: .image); backdrop.imageFile = try importBackgroundImage(URL(fileURLWithPath: (path as NSString).expandingTildeInPath),into: url)
+            backdrop.blur = p.style.backdrop?.kind == .image ? p.style.backdrop?.blur ?? 0 : 0
+            p.style.backdrop = backdrop
+        }
+        if let blur = number(args,"background_blur") {
+            guard p.style.backdrop?.kind == .image else { throw ToolError(message: "background_blur gilt nur für ein eigenes Hintergrundbild.") }
+            p.style.backdrop?.blur = blur
+        }
         if let v = number(args,"padding") { p.style.padding = v }
         if let v = number(args,"corner_radius_px") { p.style.cornerRadius = v/1080 }
         if let v = number(args,"shadow") { p.style.shadow = v }
@@ -184,13 +228,16 @@ let tools: [Tool] = [
         if let v = number(args,"cursor_size") { p.style.cursorSize = v }
         if let v = number(args,"cursor_smoothing_ms") { p.style.smoothing = v/1000 }
         if let v = number(args,"cursor_tilt") { p.style.cursorTilt = v }
-        if let v = args["click_effect"] as? String { p.style.clickEffect = ClickEffect(rawValue: v) }
+        if let v = args["click_effect"] as? String { guard let effect = ClickEffect(rawValue: v) else { throw ToolError(message: "click_effect: \(ClickEffect.allCases.map(\.rawValue).joined(separator: ", "))") }; p.style.clickEffect = effect }
         if let v = bool(args,"show_camera") { p.style.showCamera = v }
-        if let v = args["camera_shape"] as? String { p.style.cameraShape = CameraShape(rawValue: v) }
+        if let v = args["camera_shape"] as? String { guard let shape = CameraShape(rawValue: v) else { throw ToolError(message: "camera_shape: \(CameraShape.allCases.map(\.rawValue).joined(separator: ", "))") }; p.style.cameraShape = shape }
         if let v = number(args,"camera_size") { p.style.cameraSize = v }
         if let v = args["camera_position"] as? String {
-            p.style.cameraPosition = ["oben-links": Point(0.16,0.19),"oben-rechts": Point(0.84,0.19),"unten-links": Point(0.16,0.81),"unten-rechts": Point(0.84,0.81)][v] ?? p.style.cameraPosition
+            guard let point = ["oben-links": Point(0.16,0.19),"oben-rechts": Point(0.84,0.19),"unten-links": Point(0.16,0.81),"unten-rechts": Point(0.84,0.81)][v] else { throw ToolError(message: "camera_position: oben-links, oben-rechts, unten-links oder unten-rechts") }
+            p.style.cameraPosition = point
         }
+        if let x = number(args,"camera_x") { guard (0...1).contains(x) else { throw ToolError(message: "camera_x: 0–1") }; p.style.cameraPosition.x = x }
+        if let y = number(args,"camera_y") { guard (0...1).contains(y) else { throw ToolError(message: "camera_y: 0–1") }; p.style.cameraPosition.y = y }
         if let v = number(args,"camera_size_while_zoomed") { p.style.cameraZoomScale = v }
         if let v = bool(args,"camera_border") { p.style.cameraBorder = v }
         if let v = bool(args,"mirror_camera") { p.style.mirrorCamera = v }
@@ -200,7 +247,8 @@ let tools: [Tool] = [
     Tool(name: "edit_zooms",description: "Zooms bearbeiten. action: clear (alle entfernen), regenerate (aus Klicks neu erzeugen, optional scale/lead_s/hold_s), add (start_s/end_s/scale, optional focus_x/focus_y für festen Punkt), remove (id), update (id + Felder).",
          properties: ["recording": recordingProperty,"action": ["type": "string","enum": ["clear","regenerate","add","remove","update"]],"id": ["type": "string"],
                       "start_s": ["type": "number"],"end_s": ["type": "number"],"scale": ["type": "number","description": "1–4"],"focus_x": ["type": "number"],"focus_y": ["type": "number"],
-                      "lead_s": ["type": "number"],"hold_s": ["type": "number"]],required: ["action"]) { args in
+                      "lead_s": ["type": "number"],"hold_s": ["type": "number"],
+                      "follows_cursor": ["type": "boolean","description": "update: true = Zoom folgt wieder dem Mauszeiger statt einem festen Punkt."]],required: ["action"]) { args in
         let url = try resolve(args); var p = try load(url)
         switch args["action"] as? String {
         case "clear": p.zooms = []
@@ -222,17 +270,30 @@ let tools: [Tool] = [
             if let v = number(args,"end_s") { p.zooms[i].end = v }
             if let v = number(args,"scale") { p.zooms[i].scale = v }
             if let x = number(args,"focus_x"), let y = number(args,"focus_y") { p.zooms[i].focus = Point(x,y); p.zooms[i].followsCursor = false }
+            if bool(args,"follows_cursor") == true { p.zooms[i].followsCursor = true }
         default: throw ToolError(message: "action: clear, regenerate, add, remove oder update")
         }
         do { try save(p,to: url) } catch { throw ToolError(message: "Ungültige Zoomwerte: \(error.localizedDescription)") }
         return [text(details(p,url)["zoom_list"] as Any)]
     },
-    Tool(name: "edit_cuts",description: "Schnitt bearbeiten. action: remove_range (from_s/to_s in Quellzeit herausschneiden), keep_range (nur from_s–to_s behalten), reset (ganze Aufnahme), reset_all_edits (Zooms und Schnitte entfernen).",
-         properties: ["recording": recordingProperty,"action": ["type": "string","enum": ["remove_range","keep_range","reset","reset_all_edits"]],"from_s": ["type": "number"],"to_s": ["type": "number"]],required: ["action"]) { args in
+    Tool(name: "edit_cuts",description: "Schnitt bearbeiten (Quellzeit). action: remove_range (from_s/to_s herausschneiden), keep_range (nur from_s–to_s behalten), split (Abschnitt bei at_s teilen), delete_section (id), update_section (id + from_s/to_s), reset (ganze Aufnahme), reset_all_edits (Zooms, Schnitte und Kamera-Layouts entfernen). Abschnitts-IDs liefert get_recording (sections_list).",
+         properties: ["recording": recordingProperty,"action": ["type": "string","enum": ["remove_range","keep_range","split","delete_section","update_section","reset","reset_all_edits"]],
+                      "from_s": ["type": "number"],"to_s": ["type": "number"],"at_s": ["type": "number"],"id": ["type": "string"]],required: ["action"]) { args in
         let url = try resolve(args); var p = try load(url)
         switch args["action"] as? String {
         case "reset": p.cuts = [Cut(start: 0,end: p.duration)]
-        case "reset_all_edits": p.cuts = [Cut(start: 0,end: p.duration)]; p.zooms = []
+        case "reset_all_edits": p.cuts = [Cut(start: 0,end: p.duration)]; p.zooms = []; p.cameraLayouts = nil
+        case "split":
+            guard let at = number(args,"at_s"), p.cuts.contains(where: { at > $0.start+0.05 && at < $0.end-0.05 }) else { throw ToolError(message: "at_s muss mindestens 0,05 s innerhalb eines Abschnitts liegen.") }
+            p.split(at: at)
+        case "delete_section":
+            guard let id = args["id"] as? String, p.cuts.contains(where: { $0.id.uuidString == id }) else { throw ToolError(message: "Abschnitts-ID nicht gefunden (get_recording → sections_list)") }
+            guard p.cuts.count > 1 else { throw ToolError(message: "Der letzte Abschnitt bleibt; reset stellt die ganze Aufnahme wieder her.") }
+            p.cuts.removeAll { $0.id.uuidString == id }
+        case "update_section":
+            guard let id = args["id"] as? String, let i = p.cuts.firstIndex(where: { $0.id.uuidString == id }) else { throw ToolError(message: "Abschnitts-ID nicht gefunden (get_recording → sections_list)") }
+            if let v = number(args,"from_s") { p.cuts[i].start = max(0,v) }
+            if let v = number(args,"to_s") { p.cuts[i].end = min(p.duration,v) }
         case "keep_range":
             guard let from = number(args,"from_s"), let to = number(args,"to_s"), to > from else { throw ToolError(message: "from_s < to_s angeben") }
             p.cuts = [Cut(start: max(0,from),end: min(p.duration,to))]
@@ -246,10 +307,10 @@ let tools: [Tool] = [
             }
             guard !result.isEmpty else { throw ToolError(message: "Das würde das ganze Video entfernen.") }
             p.cuts = result
-        default: throw ToolError(message: "action: remove_range, keep_range, reset oder reset_all_edits")
+        default: throw ToolError(message: "action: remove_range, keep_range, split, delete_section, update_section, reset oder reset_all_edits")
         }
         do { try save(p,to: url) } catch { throw ToolError(message: "Ungültiger Schnitt: \(error.localizedDescription)") }
-        return [text(["sections": p.cuts.map { ["start_s": round2($0.start),"end_s": round2($0.end)] },"edited_duration_s": round2(p.editedDuration),"zooms": p.zooms.count])]
+        return [text(["sections": p.cuts.map { ["id": $0.id.uuidString,"start_s": round2($0.start),"end_s": round2($0.end)] },"edited_duration_s": round2(p.editedDuration),"zooms": p.zooms.count])]
     },
     Tool(name: "edit_camera_layouts",description: "Kamera-Layouts über die Zeit (Quellzeit): fullscreen (Kamera bildfüllend), split (Bildschirm und Kamera nebeneinander, im Hochformat übereinander), hidden (Kamera aus). Außerhalb dieser Abschnitte schwebt die Kamera normal. action: clear, add (layout, start_s, end_s), remove (id), update (id + Felder). Übergänge sind weich animiert.",
          properties: ["recording": recordingProperty,"action": ["type": "string","enum": ["clear","add","remove","update"]],"layout": ["type": "string","enum": CameraLayout.allCases.map(\.rawValue)],
@@ -298,10 +359,17 @@ let tools: [Tool] = [
         try await MovieExporter.export(project: p,directory: url,to: output,height: height,fps: fps)
         return [text(["output": output.path,"duration_s": round2(p.editedDuration),"format": p.style.format.rawValue,"height": height,"fps": fps,"render_s": round2(Date().timeIntervalSince(clock))])]
     },
-    Tool(name: "recorder",description: "Steuert die laufende Rekord-App: open (Aufnahmeleiste öffnen), start (optional source: display|area-16:9), stop, pause (Pause/Fortsetzen), show_editor (Aufnahme im Editor öffnen), status. Die App wird bei Bedarf gestartet.",
-         properties: ["action": ["type": "string","enum": ["open","start","stop","pause","show_editor","status"]],"source": ["type": "string","enum": ["display","area-16:9"]],"recording": recordingProperty],required: ["action"]) { args in
+    Tool(name: "recorder",description: "Steuert die laufende Rekord-App: open (Aufnahmeleiste öffnen), start (optional source: display|area-16:9), stop, pause (Pause/Fortsetzen), show_editor (Aufnahme im Editor öffnen), status, devices (Kameras, Mikrofone und aktuelle Einrichtung), configure (vor der Aufnahme: mode studio|loom, fps, camera, microphone, system_audio, camera_device, microphone_device, countdown, auto_widescreen, title), discard und restart (laufende Aufnahme verwerfen bzw. neu beginnen, confirm). Die App wird bei Bedarf gestartet.",
+         properties: ["action": ["type": "string","enum": ["open","start","stop","pause","show_editor","status","devices","configure","discard","restart"]],"source": ["type": "string","enum": ["display","area-16:9"]],"recording": recordingProperty,
+                      "mode": ["type": "string","enum": ["studio","loom"]],"fps": ["type": "integer","enum": [30,60]],"camera": ["type": "boolean"],"microphone": ["type": "boolean"],"system_audio": ["type": "boolean"],
+                      "camera_device": ["type": "string","description": "Name oder ID aus devices; leer = Standard."],"microphone_device": ["type": "string","description": "Name oder ID aus devices; leer = Standard."],
+                      "countdown": ["type": "boolean"],"auto_widescreen": ["type": "boolean","description": "MacBook-Vollbild automatisch auf 16:9 ohne Menüleiste und Dock."],
+                      "title": ["type": "string","description": "Titel der nächsten Aufnahme."],"confirm": confirmProperty],required: ["action"]) { args in
         let action = args["action"] as? String ?? "status"
         if action == "status" { return [text(appStatus())] }
+        if ["devices","configure","discard","restart"].contains(action) {
+            return [text(try await appCall("recorder.\(action)",pick(args,["mode","fps","camera","microphone","system_audio","camera_device","microphone_device","countdown","auto_widescreen","title","confirm"])))]
+        }
         var components = URLComponents(); components.scheme = "rekord"; components.host = action == "show_editor" ? "open" : action
         if action == "start", let source = args["source"] as? String { components.queryItems = [URLQueryItem(name: "source",value: source)] }
         if action == "show_editor" { components.queryItems = [URLQueryItem(name: "path",value: try resolve(args).path)] }
@@ -310,27 +378,39 @@ let tools: [Tool] = [
         try await Task.sleep(nanoseconds: action == "start" ? 4_500_000_000 : 1_200_000_000)
         return [text(appStatus())]
     },
-    Tool(name: "share_link",description: "Erstellt über die App einen öffentlichen Link zur Aufnahme (benötigt den eingerichteten Share-Server) und gibt die URL zurück.",properties: ["recording": recordingProperty],required: []) { args in
+    Tool(name: "share_link",description: "Erstellt über die App einen öffentlichen Link zur Aufnahme (benötigt den eingerichteten Share-Server) und gibt die URL zurück. Optional expires_days (1–3650) oder 0 für dauerhaft; sonst gilt die Einstellung (Standard 90 Tage).",
+         properties: ["recording": recordingProperty,"expires_days": ["type": "integer","description": "1–3650 Tage, 0 = dauerhaft."]],required: []) { args in
         let url = try resolve(args)
-        let receipt = url.appendingPathComponent("share.json")
-        let before = (try? receipt.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-        let job = UUID().uuidString
-        var components = URLComponents(); components.scheme = "rekord"; components.host = "share"; components.queryItems = [URLQueryItem(name: "path",value: url.path),URLQueryItem(name: "id",value: job)]
-        try openInApp(components.url!)
-        let deadline = Date().addingTimeInterval(300)
-        while Date() < deadline {
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            // The app acknowledges the job in status.json: errors come back at once instead of after the timeout.
-            if let result = appStatus()["last_command"] as? [String: Any], result["id"] as? String == job {
-                if result["ok"] as? Bool == false { throw ToolError(message: "Rekord hat die Freigabe abgelehnt: \(result["error"] as? String ?? "unbekannter Fehler")") }
-                if let link = result["link"] as? String { return [text(["url": link])] }
-            }
-            let now = (try? receipt.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            if now > before, let data = try? Data(contentsOf: receipt), let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let video = json["video"] as? [String: Any], let link = video["url"] as? String { return [text(["url": link])] }
-        }
-        throw ToolError(message: "Kein Link innerhalb von 5 Minuten. Ist der Share-Server in der App eingerichtet?")
+        let expiry = try integer(args,"expires_days",in: 0...3650)
+        let link = try await shareLink(url)
+        guard let expiry else { return [text(["url": link])] }
+        let videoID = ((try? JSONSerialization.jsonObject(with: Data(contentsOf: url.appendingPathComponent("share.json")))) as? [String: Any]).flatMap { ($0["video"] as? [String: Any])?["id"] as? String }
+        guard let videoID else { return [text(["url": link,"hint": "Ablaufdatum nicht gesetzt: Freigabe-ID unbekannt. manage_shares set_expiry nachholen."])] }
+        return [text(["url": link,"expiry": try await appCall("shares.set_expiry",["video_id": videoID,"days": expiry == 0 ? NSNull() : expiry as Any],timeout: 120)])]
     },
+]
+/// Shares a recording through the app and waits for the link.
+func shareLink(_ url: URL) async throws -> String {
+    let receipt = url.appendingPathComponent("share.json")
+    let before = (try? receipt.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+    let job = UUID().uuidString
+    var components = URLComponents(); components.scheme = "rekord"; components.host = "share"; components.queryItems = [URLQueryItem(name: "path",value: url.path),URLQueryItem(name: "id",value: job)]
+    try openInApp(components.url!)
+    let deadline = Date().addingTimeInterval(300)
+    while Date() < deadline {
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        // The app acknowledges the job in status.json: errors come back at once instead of after the timeout.
+        if let result = appStatus()["last_command"] as? [String: Any], result["id"] as? String == job {
+            if result["ok"] as? Bool == false { throw ToolError(message: "Rekord hat die Freigabe abgelehnt: \(result["error"] as? String ?? "unbekannter Fehler")") }
+            if let link = result["link"] as? String { return link }
+        }
+        let now = (try? receipt.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        if now > before, let data = try? Data(contentsOf: receipt), let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let video = json["video"] as? [String: Any], let link = video["url"] as? String { return link }
+    }
+    throw ToolError(message: "Kein Link innerhalb von 5 Minuten. Ist der Share-Server in der App eingerichtet?")
+}
+let tools2: [Tool] = [
     Tool(name: "list_meetings",description: "Listet aufgenommene Meetings (Calls), neueste zuerst: Gesprächspartner, Firma, Datum, Dauer, Interesse 1–5, Kurzfassung und nächster Schritt. Filter optional, z. B. min_interest 4 für heiße Leads.",
          properties: ["min_interest": ["type": "integer","description": "Nur Meetings mit Interesse ≥ diesem Wert (1–5)."],
                       "since": ["type": "string","description": "Nur Meetings ab diesem Datum (YYYY-MM-DD)."],
@@ -358,6 +438,8 @@ let tools: [Tool] = [
         result["error"] = meeting.error as Any
         if let summary { result["summary"] = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(summary))) as Any; result["summary_markdown"] = summary.markdown(for: meeting) }
         if bool(args,"include_transcript") ?? true, let transcript = try? Transcript.load(from: url) { result["transcript_markdown"] = transcript.markdown(for: meeting) }
+        let questions = MeetingQuestion.load(from: url)
+        if !questions.isEmpty { result["questions"] = questions.map { ["question": $0.question,"answer": $0.answer,"asked_at": ISO8601DateFormatter().string(from: $0.askedAt)] } }
         return [text(result)]
     },
     Tool(name: "list_guides",description: "Listet Anleitungen (Schritt-für-Schritt aus Bildschirmaufnahmen), neueste zuerst: Titel, Apps, Schrittzahl, ob ein Automatisierungs-Brief und ein geteilter Link existieren.",
@@ -392,7 +474,8 @@ let tools: [Tool] = [
         }
         return content
     },
-] + inventoryTools
+] + inventoryTools + appTools
+let tools: [Tool] = tools1 + tools2
 
 func guideSummary(_ guide: Guide,_ url: URL) -> [String: Any] {
     ["guide": url.path,"title": guide.title,"apps": guide.apps,"steps": guide.steps.count,"duration_s": round2(guide.duration),
@@ -469,8 +552,8 @@ func handle(_ message: [String: Any]) async {
     switch method {
     case "initialize":
         reply(["protocolVersion": params["protocolVersion"] as? String ?? "2025-06-18","capabilities": ["tools": ["listChanged": false]],
-               "serverInfo": ["name": "rekord","version": "1.7.0"],
-               "instructions": "Rekord: Bildschirmaufnahmen mit Auto-Zoom, Kamera und Hintergrund. Typischer Ablauf: list_recordings → get_recording → render_frame zum Ansehen → update_look / edit_zooms / edit_cuts → render_frame zur Kontrolle → export_mp4 oder share_link. recorder startet und stoppt Aufnahmen in der App. Meetings (Calls mit Transkript und Sales-Zusammenfassung): list_meetings → get_meeting. Anleitungen (Schritt-für-Schritt aus Klicks, mit Automatisierungs-Brief): list_guides → get_guide. Arbeits-Inventur: inventory_status → list_processes → get_process (Übergabe-Paket, inaktive Entwürfe); get_inventory_day zeigt Blöcke ohne Rohtext. Zeiten in edit_zooms/edit_cuts sind Quellzeit, in render_frame die Zeit im geschnittenen Video."])
+               "serverInfo": ["name": "rekord","version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"],
+               "instructions": "Rekord: Bildschirmaufnahmen mit Auto-Zoom, Kamera und Hintergrund. Typischer Ablauf: list_recordings → get_recording → render_frame zum Ansehen → update_look / edit_zooms / edit_cuts → render_frame zur Kontrolle → export_mp4 oder share_link. recorder startet und stoppt Aufnahmen in der App. Meetings (Calls mit Transkript und Sales-Zusammenfassung): list_meetings → get_meeting. Anleitungen (Schritt-für-Schritt aus Klicks, mit Automatisierungs-Brief): list_guides → get_guide. Arbeits-Inventur: inventory_status → list_processes → get_process (Übergabe-Paket, inaktive Entwürfe); get_inventory_day zeigt Blöcke ohne Rohtext. Alles, was in der App geht, geht auch hier: manage_library (Ordner, verschieben, Papierkorb), recorder configure/devices (Modus, Kamera, Mikro), manage_shares und video_offers (Links, Ablauf, Widerruf, Angebote mit Statistik), meeting_control, guide_control und edit_guide, inventory_control, storage, settings. Löschen, Verwerfen und Sperren brauchen confirm: true; ohne confirm zeigen revoke und cleanup nur, was passieren würde. Zeiten in edit_zooms/edit_cuts sind Quellzeit, in render_frame die Zeit im geschnittenen Video."])
     case "notifications/initialized","notifications/cancelled": break
     case "ping": reply([:])
     case "tools/list":

@@ -70,6 +70,7 @@ import RecorderCore
         await GuideDiagnostics.run(arguments: CommandLine.arguments)
         await InventoryDiagnostics.run(arguments: CommandLine.arguments)
         await OfferDiagnostics.run(arguments: CommandLine.arguments)
+        await CallDiagnostics.run(arguments: CommandLine.arguments)
         if CommandLine.arguments.contains("--exit-after-diagnostics") { NSApplication.shared.terminate(nil) }
     }
     func applicationDidFinishLaunching(_ notification: Notification) {

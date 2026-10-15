@@ -3,7 +3,7 @@ import Foundation
 /// A `rekord://` command (sent by the MCP server, scripts or any app on the Mac). Parsing never traps:
 /// duplicate, unknown or malformed parameters and unknown actions become a readable error.
 public struct AppCommand: Equatable, Sendable {
-    public enum Action: String, Sendable { case inventory, inventoryPause = "inventory-pause", inventoryResume = "inventory-resume", open, start, stop, pause, share, meetings, meeting, meetingStop = "meeting-stop", guides, guide, guideStop = "guide-stop" }
+    public enum Action: String, Sendable { case inventory, inventoryPause = "inventory-pause", inventoryResume = "inventory-resume", open, start, stop, pause, share, meetings, meeting, meetingStop = "meeting-stop", guides, guide, guideStop = "guide-stop", call }
     public enum Source: String, Sendable { case display, area169 = "area-16:9" }
     public var action: Action
     /// Project folder for `open` / `share` (absolute, standardized).
@@ -12,6 +12,8 @@ public struct AppCommand: Equatable, Sendable {
     /// Request id chosen by the caller; the app reports the result for it in status.json.
     public var id: String?
     public var minutes: Int?
+    /// Operation of a `call` (arguments come from the key-protected request file, see AppCall).
+    public var op: String?
 
     public struct ParseError: LocalizedError, Equatable {
         public let message: String
@@ -19,7 +21,7 @@ public struct AppCommand: Equatable, Sendable {
     }
     static let allowed: [Action: Set<String>] = [.inventory: ["id"],.inventoryPause: ["id","minutes"],.inventoryResume: ["id"],.open: ["path","id"],.start: ["source","id"],.stop: ["id"],.pause: ["id"],.share: ["path","id"],
                                                  .meetings: ["path","id"],.meeting: ["id"],.meetingStop: ["id"],
-                                                 .guides: ["path","id"],.guide: ["id"],.guideStop: ["id"]]
+                                                 .guides: ["path","id"],.guide: ["id"],.guideStop: ["id"],.call: ["op","id"]]
 
     public static func parse(_ url: URL) throws -> AppCommand {
         func fail(_ message: String) -> ParseError { ParseError(message: message) }
@@ -50,6 +52,11 @@ public struct AppCommand: Equatable, Sendable {
         if let raw = values["path"] {
             guard !raw.isEmpty, raw.hasPrefix("/"), raw.count <= 1024, !raw.contains("\0") else { throw fail("path muss ein absoluter Pfad sein.") }
             command.path = URL(fileURLWithPath: raw).standardizedFileURL
+        }
+        if action == .call {
+            guard let op = values["op"], AppCall.validOperation(op) else { throw fail("call braucht eine gültige Operation (op).") }
+            guard command.id != nil else { throw fail("call braucht eine Auftrags-ID (id).") }
+            command.op = op
         }
         // Sharing always names the project explicitly: never fall back to whatever happens to be open.
         if action == .share, command.path == nil { throw fail("share braucht den Pfad der Aufnahme (path).") }

@@ -105,7 +105,7 @@ extension EditorStore {
         refreshLibrary()
     }
     /// Keeps the recent list and the open take in step with moves on disk.
-    private func moved(_ pairs: [(URL,URL)]) {
+    func moved(_ pairs: [(URL,URL)]) {
         guard !pairs.isEmpty else { return }
         let map = Dictionary(pairs.map { ($0.0.standardizedFileURL.path,$0.1) },uniquingKeysWith: { $1 })
         recent = recent.map { map[$0.standardizedFileURL.path] ?? $0 }

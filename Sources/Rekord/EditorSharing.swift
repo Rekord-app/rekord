@@ -5,6 +5,7 @@ import RecorderCore
 
 extension EditorStore {
     func shareClient(server: URL? = nil) async throws -> ShareClient {
+        if server == nil, let shareClientOverride { return shareClientOverride }   // call diagnostics against a loopback server
         let address = server?.absoluteString ?? UserDefaults.standard.string(forKey: "shareServer") ?? ""
         guard let url = URL(string: address),let token = try await ShareKeychain.readAsync(server: address) else { throw ShareError.message("Bitte zuerst deinen Share-Server einrichten.") }
         return try ShareClient(baseURL: url,token: token)

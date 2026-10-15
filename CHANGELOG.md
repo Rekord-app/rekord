@@ -3,6 +3,14 @@
 Alle Änderungen an Rekord (bis 1.2.0: „Focus Recorder“). Updaten mit `./scripts/update.sh` (siehe [ANLEITUNG.md](ANLEITUNG.md)).
 Neue Einträge kommen oben dazu; die Version steht in `Resources/Info.plist`.
 
+## 1.13.0 – 15.10.2026 · Claude Code kann alles, was die App kann
+
+- **28 MCP-Werkzeuge statt 19.** Neu: `manage_library` (Ordner, verschieben, Papierkorb), `manage_shares` (Links, Ablauf, Widerruf), `video_offers` (Angebote aus der Vorlage, Statistik, Ablauf), `meeting_control` (starten, stoppen, neu zusammenfassen, Fragen an den Call, löschen), `guide_control` und `edit_guide` (Texte, Schwärzungen, Schritte, PDF, Link), `inventory_control`, `storage`, `settings`.
+- `recorder` richtet die nächste Aufnahme ein (Studio/Loom, Kamera, Mikro, Systemton, Geräte, Countdown, Titel) und kann eine laufende Aufnahme verwerfen oder neu starten.
+- Lücken geschlossen: eigener Verlauf, eigenes Hintergrundbild mit Unschärfe, Kamera-Feinposition, Abschnitte teilen, löschen und ändern per ID, Zoom wieder dem Cursor folgen lassen, Link-Ablauf beim Teilen, Fragen an den Call in `get_meeting`.
+- Behoben: ungültige Werte für Klick-Effekt, Kameraform und -ecke setzten still den Standard, statt einen Fehler zu melden; `reset_all_edits` ließ die Kamera-Layouts stehen.
+- **Sicherer Kanal zur App:** Aufträge kommen über eine Datei mit lokalem Zufallsschlüssel; ein bloßer `rekord://`-Link, etwa von einer Webseite, bewirkt nichts. Löschen, Verwerfen und Sperren brauchen `confirm: true`, Widerruf und Aufräumen zeigen vorher, was passieren würde. Claude-Schlüssel, Share-Token und Einwilligungs-Schalter bleiben in der App.
+
 ## 1.12.0 – 15.10.2026 · Angebote einmal einrichten
 
 - **Buchungslink & Landingpage** direkt bei Video-Angeboten einrichten: Standardlink, Absender, Farbe, Button-Text und Nachricht mit Vorschau. Ohne gültigen Link startet zuerst die Einrichtung, danach der Upload.

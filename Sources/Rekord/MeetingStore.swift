@@ -38,7 +38,7 @@ import RecorderCore
     var bringForward: (() -> Void)?
     private var recorder: MeetingRecorder?
     private var meeting: Meeting?
-    private var directory: URL?
+    private(set) var directory: URL?
     private var started: Date?
     private var timer: Timer?
     private let panel = MeetingPanelController()

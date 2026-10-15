@@ -30,6 +30,8 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     @Published var showShareSettings = false
     @Published var shareConfigured = !(UserDefaults.standard.string(forKey: "shareServer") ?? "").isEmpty
     @Published var shareReceipt: ShareReceipt?
+    /// Diagnostics only: a loopback share client instead of the configured server.
+    var shareClientOverride: ShareClient?
     var shareTask: Task<Void,Never>?
     @Published var project: Project?
     @Published var directory: URL?
@@ -710,6 +712,7 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         case .guideStop:
             guard guides.recording else { reportCommand(command,error: "Es läuft keine Anleitung."); return }
             guides.stop(); reportCommand(command)
+        case .call: performCall(command)
         case .meetingStop:
             guard meetings.recording else { reportCommand(command,error: "Es läuft kein Meeting."); return }
             meetings.stop(); reportCommand(command)

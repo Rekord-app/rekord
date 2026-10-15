@@ -100,6 +100,7 @@ func XCTAssertThrowsError(_ operation: @autoclosure () throws -> Void) { do { tr
         try testHardening()
         try testStorageCleanup()
         try testLibrary()
+        try testAppCalls()
         try testMeetings()
         try testGuides()
         try testVideoOffers()

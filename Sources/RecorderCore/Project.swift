@@ -362,7 +362,10 @@ public enum RecordingsFolder {
 }
 /// Application Support folder for status.json (shared with the MCP server).
 public enum SupportFolder {
-    public static var url: URL { FileManager.default.urls(for: .applicationSupportDirectory,in: .userDomainMask)[0].appendingPathComponent("Rekord") }
+    public static var url: URL {
+        if let root = ProcessInfo.processInfo.environment["REKORD_SUPPORT_ROOT"] { return URL(fileURLWithPath: root) }   // tests
+        return FileManager.default.urls(for: .applicationSupportDirectory,in: .userDomainMask)[0].appendingPathComponent("Rekord")
+    }
 }
 
 /// Identity of a saved project.json (modification time + size), used to detect writes by other processes.

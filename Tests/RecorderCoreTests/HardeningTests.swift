@@ -255,3 +255,46 @@ func testLibrary() throws {
        let copy = try? files.contentsOfDirectory(at: trash,includingPropertiesForKeys: nil).first(where: { $0.lastPathComponent.hasPrefix("KUNDEN 2026") }) { try? files.removeItem(at: copy) }
     print("PASS: library – user folders (reserved/hidden skipped), move with numbered clash, recording takes stay, rename incl. case, dissolve, temp paths")
 }
+
+/// App calls: only a request file with the local key, the matching operation and a fresh timestamp is accepted;
+/// a rekord://call URL alone (e.g. from a web page) never runs anything.
+func testAppCalls() throws {
+    let files = FileManager.default
+    let root = files.temporaryDirectory.appendingPathComponent("rekord-calls-\(UUID().uuidString)")
+    defer { try? files.removeItem(at: root); unsetenv("REKORD_SUPPORT_ROOT") }
+    setenv("REKORD_SUPPORT_ROOT",root.path,1)
+    let key = try AppCall.key()
+    let again = try AppCall.key()
+    precondition(key.count == 64 && again == key,"Key is created once and reused")
+    let mode = (try files.attributesOfItem(atPath: root.appendingPathComponent("call-key").path)[.posixPermissions] as? NSNumber)?.intValue
+    precondition(mode == 0o600,"Key file must be private, got \(String(mode ?? 0,radix: 8))")
+    try Data("kaputt".utf8).write(to: root.appendingPathComponent("call-key"))
+    let replaced = try AppCall.key()
+    precondition(replaced.count == 64 && replaced != key,"A damaged key file is replaced instead of looping")
+    let current = replaced
+    // Round trip.
+    try AppCall.writeRequest(id: "job-1",op: "library.move",arguments: ["recording": "/x.rekord","folder": "Kunden"])
+    let args = try AppCall.readRequest(id: "job-1",op: "library.move")
+    _ = current
+    precondition(args["folder"] as? String == "Kunden","Arguments survive")
+    precondition((try? AppCall.readRequest(id: "job-1",op: "library.move")) == nil,"A request is consumed once")
+    // URL without request file, wrong op, wrong key, stale request.
+    precondition((try? AppCall.readRequest(id: "job-2",op: "library.trash")) == nil,"No file, no call")
+    try AppCall.writeRequest(id: "job-3",op: "library.move",arguments: [:])
+    precondition((try? AppCall.readRequest(id: "job-3",op: "library.trash")) == nil,"Operation must match the file")
+    for (id,body) in [("job-4",["key": String(repeating: "0",count: 64),"op": "library.trash","arguments": [:],"created": Date().timeIntervalSince1970] as [String: Any]),
+                      ("job-5",["key": current,"op": "library.trash","arguments": [:],"created": Date().timeIntervalSince1970-600] as [String: Any])] {
+        try JSONSerialization.data(withJSONObject: body).write(to: AppCall.folder.appendingPathComponent("\(id).request.json"))
+        precondition((try? AppCall.readRequest(id: id,op: "library.trash")) == nil,"\(id) must be refused")
+    }
+    for bad in ["../x","a/b","",String(repeating: "a",count: 200)] { precondition(!AppCall.validID(bad),"id \(bad)") }
+    for bad in ["library","Library.move","library.move;rm","library..x","x.y.z"] { precondition(!AppCall.validOperation(bad),"op \(bad)") }
+    AppCall.writeResult(id: "job-1",result: ["path": "/y"],error: nil)
+    precondition(AppCall.takeResult(id: "job-1")?.result["path"] as? String == "/y" && AppCall.takeResult(id: "job-1") == nil,"Result is read once")
+    // Parser: call needs op and id, nothing else.
+    precondition((try? AppCommand.parse(URL(string: "rekord://call?op=library.move&id=j1")!))?.op == "library.move")
+    for bad in ["rekord://call?op=library.move","rekord://call?id=j1","rekord://call?op=library.move&id=j1&path=/x","rekord://call?op=../x&id=j1"] {
+        precondition((try? AppCommand.parse(URL(string: bad)!)) == nil,"Must refuse \(bad)")
+    }
+    print("PASS: app calls – private key file, consumed once, op must match, wrong key/stale/missing file refused, strict ids and parser")
+}
