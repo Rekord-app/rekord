@@ -1,0 +1,1 @@
+PASS synthetic benchmark: 600.3 s, 120 ticks, 20 OCR + redacted JPEG, 593920 bytes. CPU measured by ps externally; no live capture.

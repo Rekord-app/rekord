@@ -1,0 +1,163 @@
+{
+  "name": "Rekord Kunden-Update – inaktiver Integrationsentwurf",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Auf Abruf – Fixture",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "step-1",
+      "name": "1. Aufgaben lesen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// {{AUFGABENLISTE_ZUGANG}} prüfen. Isolierter Entwurf erwartet strukturierte Fixture-Daten.\nreturn $input.all();"
+      },
+      "notes": "1. Über {{AUFGABENLISTE_ZUGANG}} die Aufgabenliste lesen und die erledigten Aufgaben im relevanten Zeitraum ermitteln. Der Zeitraum ist unklar.",
+      "notesInFlow": true,
+      "disabled": true
+    },
+    {
+      "id": "step-2",
+      "name": "2. Status zusammenfassen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Implementierung: customer_update.py draft(): Statusgruppen und ID-Prüfung.\nreturn $input.all();"
+      },
+      "notes": "2. Projektstatus aus der Aufgabenliste zusammenfassen.",
+      "notesInFlow": true,
+      "disabled": false
+    },
+    {
+      "id": "step-3",
+      "name": "3. Bericht formulieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Implementierung: customer_update.py draft(): sachliche Vorlage ohne LLM.\nreturn $input.all();"
+      },
+      "notes": "3. Sachlichen Kundenbericht zum Projektstand formulieren.",
+      "notesInFlow": true,
+      "disabled": false
+    },
+    {
+      "id": "step-4",
+      "name": "4. Entwurf speichern",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// {{MAIL_POSTFACH_ZUGANG}} noch nicht verbunden. Lokal erzeugt customer_update.py eine X-Unsent: 1 .eml-Datei. Kein Versand.\nreturn $input.all();"
+      },
+      "notes": "4. Bericht über {{MAIL_POSTFACH_ZUGANG}} als E-Mail-Entwurf speichern, ggf. mit {{KUNDE_EMPFAENGER}}. Nicht senden.",
+      "notesInFlow": true,
+      "disabled": true
+    },
+    {
+      "id": "step-5",
+      "name": "5. Menschliche Prüfung",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Mensch prüft Entwurf; Versand außerhalb dieses inaktiven Workflows.\nreturn $input.all();"
+      },
+      "notes": "5. Entwurf zur menschlichen Prüfung bereitstellen. Die Prüfung und der anschließende Versand durch den Menschen liegen außerhalb der Automatisierung.",
+      "notesInFlow": true,
+      "disabled": false
+    }
+  ],
+  "connections": {
+    "Auf Abruf – Fixture": {
+      "main": [
+        [
+          {
+            "node": "1. Aufgaben lesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Aufgaben lesen": {
+      "main": [
+        [
+          {
+            "node": "2. Status zusammenfassen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Status zusammenfassen": {
+      "main": [
+        [
+          {
+            "node": "3. Bericht formulieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Bericht formulieren": {
+      "main": [
+        [
+          {
+            "node": "4. Entwurf speichern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Entwurf speichern": {
+      "main": [
+        [
+          {
+            "node": "5. Menschliche Prüfung",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "source_process": "p-221ac741-2a52-43df-afb9-1d0e6420bdda",
+    "status": "draft",
+    "credentials": "placeholders-only",
+    "note": "Code-Knoten dokumentieren die Zuordnung zum ausführbaren lokalen Python-Entwurf. Keine fertige Postfach-Integration."
+  }
+}

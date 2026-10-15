@@ -1,0 +1,29 @@
+name: Validation
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: scripts/check-release.sh --toolchain
+      - run: swift build -c release
+      - run: scripts/test.sh
+      - run: scripts/test.sh --integration
+      - run: scripts/test.sh --mcp
+      - run: scripts/test-public-export.sh
+      - run: scripts/test-release-guards.sh
+  server:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test --prefix share-service

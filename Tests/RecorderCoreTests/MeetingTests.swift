@@ -2,6 +2,20 @@ import Foundation
 import RecorderCore
 
 func testMeetings() throws {
+    for legacy in [nil, false, true] as [Bool?] {
+        let name = "rekord-policy-tests-\(UUID().uuidString)", defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        if let legacy { defaults.set(legacy,forKey: "meetingAutoRecord") }
+        precondition(!MeetingRecordingPolicy.enabled(defaults))
+        MeetingRecordingPolicy.migrate(defaults)
+        precondition(!MeetingRecordingPolicy.enabled(defaults))
+        XCTAssertEqual(defaults.object(forKey: "meetingLegacyAutoRecord") as? Bool,legacy)
+        MeetingRecordingPolicy.setEnabled(true,in: defaults)
+        MeetingRecordingPolicy.migrate(defaults)
+        precondition(MeetingRecordingPolicy.enabled(defaults))
+        MeetingRecordingPolicy.setEnabled(false,in: defaults)
+        precondition(!MeetingRecordingPolicy.enabled(defaults))
+    }
     // Sentences: split at punctuation and pauses, shifted by the track offset; punctuation re-attached.
     let words = [TranscriptWord(text: " Hallo",start: 0.2,end: 0.5),TranscriptWord(text: " Anna",start: 0.6,end: 0.9),TranscriptWord(text: ".",start: 0.9,end: 0.95),
                  TranscriptWord(text: " Wie",start: 1.2,end: 1.4),TranscriptWord(text: " geht's?",start: 1.5,end: 1.9),

@@ -19,6 +19,9 @@ final class MeetingRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDeleg
     }
 
     func start(directory: URL,systemAudio: Bool,microphoneID: String) async throws {
+        if systemAudio {
+            guard #available(macOS 14.2, *) else { throw RecorderError.message("Systemton im Meeting-Modus braucht macOS 14.2 oder neuer.") }
+        }
         guard await AVCaptureDevice.requestAccess(for: .audio) else { throw RecorderError.message("Mikrofonzugriff fehlt. In Datenschutz & Sicherheit → Mikrofon freigeben.") }
         guard let device = CaptureDevices.microphone(id: microphoneID) else { throw RecorderError.message("Kein Mikrofon angeschlossen.") }
         let session = AVCaptureSession(); session.beginConfiguration()
@@ -28,9 +31,14 @@ final class MeetingRecorder: NSObject, AVCaptureAudioDataOutputSampleBufferDeleg
         let output = AVCaptureAudioDataOutput(); output.setSampleBufferDelegate(self,queue: queue)
         guard session.canAddOutput(output) else { throw RecorderError.message("Mikrofon-Ausgabe nicht verfügbar.") }
         session.addOutput(output); session.commitConfiguration()
-        let sink = try AudioSink(url: directory.appendingPathComponent(MeetingFile.microphone))
+        let microphoneURL = directory.appendingPathComponent(MeetingFile.microphone)
         startHostSeconds = CMClockGetTime(CMClockGetHostTimeClock()).seconds
-        await withCheckedContinuation { continuation in queue.async { self.microphone = sink; self.recording = true; continuation.resume() } }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void,Error>) in
+            queue.async {
+                do { self.microphone = try AudioSink(url: microphoneURL); self.recording = true; continuation.resume() }
+                catch { continuation.resume(throwing: error) }
+            }
+        }
         if systemAudio {
             guard #available(macOS 14.2, *) else { throw RecorderError.message("Systemton im Meeting-Modus braucht macOS 14.2 oder neuer.") }
             let tap = SystemAudioTap()

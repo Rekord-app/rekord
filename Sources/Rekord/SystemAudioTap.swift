@@ -106,9 +106,9 @@ final class SystemAudioTap: @unchecked Sendable {
             let excluded = Self.excludedProcesses()
             guard Set(description.processes) != Set(excluded) else { return }
             description.processes = excluded
-            var reference: CATapDescription = description
+            var reference = Unmanaged.passUnretained(description).toOpaque()
             var tapAddress = Self.address(kAudioTapPropertyDescription)
-            _ = AudioObjectSetPropertyData(self.tapID,&tapAddress,0,nil,UInt32(MemoryLayout<CATapDescription>.size),&reference)
+            _ = AudioObjectSetPropertyData(self.tapID,&tapAddress,0,nil,UInt32(MemoryLayout<UnsafeMutableRawPointer>.size),&reference)
         }
         if AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject),&address,queue,listener) == noErr { processListener = listener }
     }
@@ -159,7 +159,10 @@ final class SystemAudioTap: @unchecked Sendable {
     private func read<T>(_ object: AudioObjectID,_ selector: AudioObjectPropertySelector,_ value: inout T) throws {
         var address = Self.address(selector)
         var size = UInt32(MemoryLayout<T>.size)
-        try check(AudioObjectGetPropertyData(object,&address,0,nil,&size,&value),"Core Audio liefert keine Eigenschaft \(selector)")
+        let status = withUnsafeMutablePointer(to: &value) { pointer in
+            AudioObjectGetPropertyData(object,&address,0,nil,&size,pointer)
+        }
+        try check(status,"Core Audio liefert keine Eigenschaft \(selector)")
     }
     private func check(_ status: OSStatus,_ message: String) throws {
         guard status == noErr else { throw RecorderError.message("\(message) (Core Audio \(status)).") }

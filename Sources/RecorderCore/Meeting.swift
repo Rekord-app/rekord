@@ -15,9 +15,11 @@ public struct Meeting: Codable, Equatable, Sendable {
     public var company: String
     public var startedAt: Date
     public var duration = 0.0
-    /// Kept for older files; recording no longer asks (consent is obtained in the conversation itself).
+    /// Legacy field. New recordings do not claim to prove consent of other participants.
     public var consent: Bool
     public var consentConfirmedAt: Date?
+    public var recordingConfirmedAt: Date?
+    public var recordingConfirmationSource: String?
     public var ownName: String
     /// Meeting app the call ran in when Rekord picked it up automatically (e.g. „Google Meet“, „Zoom“).
     public var app: String?
@@ -200,4 +202,25 @@ func meetingHeader(_ meeting: Meeting) -> String {
     if !meeting.contact.isEmpty || !meeting.company.isEmpty { parts.append([meeting.contact,meeting.company].filter { !$0.isEmpty }.joined(separator: ", ")) }
     if !meeting.hasSystemAudio { parts.append("nur eigenes Mikrofon") }
     return parts.joined(separator: " · ")
+}
+
+/// Explicit per-user opt-in. A legacy default/true is not evidence of an informed choice.
+public enum MeetingRecordingPolicy {
+    public static func migrate(_ defaults: UserDefaults) {
+        guard defaults.integer(forKey: "meetingRecordingPolicyVersion") < 2 else { return }
+        if let old = defaults.object(forKey: "meetingAutoRecord") as? Bool {
+            defaults.set(old,forKey: "meetingLegacyAutoRecord")
+            if old { defaults.set(true,forKey: "meetingMigrationNoticePending") }
+        }
+        defaults.set(false,forKey: "meetingAutoRecord")
+        defaults.removeObject(forKey: "meetingAutoRecordConfirmedAt")
+        defaults.set(2,forKey: "meetingRecordingPolicyVersion")
+    }
+    public static func enabled(_ defaults: UserDefaults) -> Bool {
+        defaults.integer(forKey: "meetingRecordingPolicyVersion") == 2 && defaults.bool(forKey: "meetingAutoRecord") && defaults.object(forKey: "meetingAutoRecordConfirmedAt") is Date
+    }
+    public static func setEnabled(_ value: Bool,in defaults: UserDefaults) {
+        migrate(defaults); defaults.set(value,forKey: "meetingAutoRecord")
+        if value { defaults.set(Date(),forKey: "meetingAutoRecordConfirmedAt") } else { defaults.removeObject(forKey: "meetingAutoRecordConfirmedAt") }
+    }
 }

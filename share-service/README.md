@@ -9,7 +9,7 @@ Für Links, die auch dann funktionieren, wenn der Mac schläft, braucht es einen
 Voraussetzung: Node 22+.
 
 ```sh
-node --test test/server.test.mjs
+npm test
 node test/local-harness.mjs ../build/share-integration
 ```
 
@@ -60,7 +60,7 @@ Auf dem Zielserver ein eigenes Verzeichnis und einen eigenen Hostnamen verwenden
 - **Wer sehen kann:**
   - Abspiel-IDs haben 192 Bit Zufall.
   - Wer den vollständigen Link hat, kann das Video sehen. Links sind nicht passwortgeschützt.
-  - Es gibt keinen öffentlichen Index, keine Analytics und kein Directory-Listing.
+  - Es gibt keinen öffentlichen Index und kein Directory-Listing. Normale Video- und Anleitungslinks haben keine Wiedergabe-Analytics; persönliche Video-Angebote messen erst nach Zustimmung.
   - Die Antworten verbieten Indexierung und fremdes Framing und senden `Referrer-Policy: no-referrer`.
 - **Upload:**
   - Uploads werden in eine temporäre `.part`-Datei gestreamt.
@@ -71,10 +71,9 @@ Auf dem Zielserver ein eigenes Verzeichnis und einen eigenen Hostnamen verwenden
 - **Widerruf:**
   - Ein widerrufener Link verschwindet sofort aus Wiedergabe und Liste. Metadaten und Medien wandern in den privaten Ordner `revoked/`.
   - Bereits heruntergeladene Kopien lassen sich nicht zurückholen.
-  - Die App löscht nichts endgültig auf dem Server.
-- **Backup:** das komplette Storage-Volume inklusive Metadaten sichern.
-  - Wiederherstellen: das passende widerrufene `.json`/`.mp4`-Paar zurück nach `metadata/` bzw. ins Storage-Root verschieben und den Service neu starten.
-  - Endgültiges Aufräumen ist ein eigener, bewusster Schritt.
+  - Medien bleiben im privaten Speicher; verknüpfte Angebotsstatistik wird endgültig gelöscht.
+- **Backup:** das komplette private Storage-Volume inklusive `offers/`, `analytics/`, `revoked/operations/` und Quarantäne sichern; Backups passend zur Aufbewahrung rotieren.
+  - Dauerhafte Widerrufsvermerke verhindern Reaktivierung durch zurückkopierte Dateien. Erneute Freigabe braucht einen neuen Upload. Alte Backups können gelöschte Messdaten enthalten; vor Restore die Löschfristen anwenden.
 - **Token rotieren:** `.env` ändern, den Service neu erstellen und den Token in der App neu speichern. Bestehende Abspiel-Links bleiben gültig.
 
 ## API
@@ -88,10 +87,10 @@ Auf dem Zielserver ein eigenes Verzeichnis und einen eigenen Hostnamen verwenden
 | DELETE | `/api/videos/:id` | Upload-Token | Widerruf in den wiederherstellbaren privaten Speicher |
 | GET/HEAD | `/v/:id` | Capability-Link | Browser-Player |
 | GET/HEAD | `/media/:id` | Capability-Link | MP4, auch einzelne Byte-Range-Requests |
-| POST | `/api/guides` | Upload-Token | Anleitung als `application/json` (max. 64 MB): `title`, `summary`, `apps`, `steps[]` (`text`, `note`, `warning`, `image` = JPEG als base64), optional `videoId` eines geteilten Videos, `brief` (`summary`, `saving`, `groups[]`), `cta`; liefert ID und Link `/g/:id` |
+| POST | `/api/guides` | Upload-Token | Anleitung als `application/json` (max. 64 MB): `title`, `summary`, `apps`, `steps[]` (`text`, `note`, `warning`, `image` = JPEG als base64), `sourceGuideId` (stabile ID für Revisionen), `brief` (`summary`, `saving`, `groups[]`), `cta`; liefert ID und Link `/g/:id` |
 | GET | `/api/guides` | Upload-Token | Aktive Anleitungen |
 | DELETE | `/api/guides/:id` | Upload-Token | Widerruf, Daten wandern nach `revoked/guides/` |
-| GET/HEAD | `/g/:id` | Capability-Link | Anleitungs-Seite: hell, mobil lesbar, Schritte mit Bildern (Tippen öffnet groß), Video, Block „Was sich davon automatisieren lässt“, Knopf zur Landingpage (`CTA_URL`, abschaltbar pro Anleitung) |
+| GET/HEAD | `/g/:id` | Capability-Link | Anleitungs-Seite: hell, mobil lesbar, Schritte mit Bildern (Tippen öffnet groß), Block „Was sich davon automatisieren lässt“, Knopf zur Landingpage (`CTA_URL`, abschaltbar pro Anleitung) |
 | GET/HEAD | `/gi/:id/:n.jpg` | Capability-Link | Schritt-Bild (nur geschwärzt hochgeladene JPEGs) |
 
 Die Header heißen `X-Focus-*` und die Protokoll-Kennung `focus-recorder-share`. Das stammt noch aus der Zeit vor der Umbenennung und bleibt so, damit App und laufender Server kompatibel bleiben.
@@ -119,4 +118,59 @@ Den Code in ein unveränderliches Verzeichnis `/opt/focus-share/releases/<versio
 - Die Routen der bestehenden App in einen Fallback-`handle` packen, damit deren Authentifizierung weiter jede bestehende Route schützt.
 - Der Server legt API, Assets, Player und Medien unter das konfigurierte Präfix.
 
-Das tatsächlich eingerichtete Live-Setup und seine Prüfung stehen in [DEPLOYMENT.md](DEPLOYMENT.md).
+Konkrete Zugangsdaten, Hostnamen und Betriebsprotokolle gehören in eine private Betreiber-Dokumentation.
+
+
+## Migration auf guide-lifecycle-v2
+
+Server zuerst aktualisieren, danach die App. `GET /api/status` muss `guide-lifecycle-v2` anbieten. Neue Anleitungen mit `videoId` werden mit 409 abgelehnt; ältere Apps müssen aktualisiert werden. Der neue Client verweigert Anleitungsuploads und Widerrufe auf älteren Servern.
+
+`sourceGuideId` plus serverseitiger SHA-256 des JSON-Payloads macht identische Wiederholungen idempotent. Geänderte Inhalte erhalten eine neue URL. Ein Widerruf sperrt alle Revisionen derselben Anleitung und transitiv alle verbundenen alten Videos/Anleitungen. Die App zeigt die betroffenen Titel und Linkzahlen vor der Bestätigung. DELETE einer bereits widerrufenen ID bleibt erfolgreich.
+
+Die atomar gespeicherte Widerrufsoperation wird vor der Antwort dauerhaft geschrieben. Beim Neustart wird sie vor Freigabe der Links angewandt. Beschädigte Anleitungen oder fehlende Bilder werden einzeln unter `quarantine/guides/` isoliert. Ein beschädigter Widerrufsvermerk verhindert den Start, damit keine gesperrten Links versehentlich zurückkehren.
+
+Das Kontingent zählt Video-Mediendateien sowie alle Anleitungsdateien einschließlich JSON, verwaisten Bildern, Quarantäne und widerrufenen Bildern. Kleine Video-Verwaltungsdateien und Widerrufsvermerke liegen außerhalb dieses Inhaltskontingents; zusätzlich freien Plattenplatz überwachen. Guide- und Videouploads teilen das Parallelitätslimit und reservieren Platz während des Uploads. Widerruf gibt absichtlich keinen Speicher frei.
+
+Vor dem Produktivupdate vollständiges Storage-Backup anlegen und die Wiederherstellung auf einer isolierten Kopie testen. Alte Video-/Guide-Verknüpfungen anhand der Metadaten inventarisieren. Vorhandene echte Links werden nicht automatisch widerrufen. Ältere Server verstehen die Widerrufsvermerke nicht: nach dem ersten v2-Widerruf niemals blind auf alte Software zurückrollen; nur eine kompatible Version einsetzen.
+
+
+
+## Video-Angebote und zustimmungsabhängige Statistik
+
+Bedienung und Messdefinitionen: [Video-Angebote](../docs/VIDEO-ANGEBOTE.md). Ein Video kann viele getrennte Angebotslinks haben. Die interne Empfängerbeschriftung erscheint nie im öffentlichen HTML. `durationSeconds` kommt aus dem MP4; alte Videos werden bei erster Angebotserstellung ergänzt.
+
+| Methode | Pfad | Zugriff / Ergebnis |
+|---|---|---|
+| GET / POST | `/api/offers` | Bearer; paginierte Liste / Angebot erstellen |
+| PATCH / DELETE | `/api/offers/:id` | Bearer; bearbeiten / diesen Link samt Statistik deaktivieren |
+| POST | `/api/offers/:id/preview` | Bearer; signierte 15-Minuten-Vorschau ohne Messung |
+| GET / DELETE | `/api/offers/:id/analytics` | Bearer; Zusammenfassung + Sessions / neue leere Messgeneration |
+| GET | `/api/offer-activity` | Bearer; erste gemessene Öffnungen, dauerhaft innerhalb der Aufbewahrungsfrist |
+| GET / HEAD | `/o/:id`, `/om/:id` | Angebotsseite / MP4 mit Byte-Ranges; keine Messung durch Abruf |
+| POST | `/api/offers/:id/sessions` | Same-origin; aktive Zustimmung `consent: "playback-v1"`; Rückgabe `id` und kurzlebiger `sessionKey` |
+| POST | `/api/offers/:id/events` | Same-origin + Session-ID/Schlüssel; kumulativer Snapshot |
+| DELETE | `/api/offers/:id/sessions/:sessionId` | Same-origin + `sessionKey`; Zuschauer widerruft und löscht seine Session |
+
+POST für Angebote: `videoId`, `creationRequestId` (16–80 ASCII-Buchstaben/Ziffern, `_`/`-`), `title` (180), `recipientLabel` (120), `message` (1.000), `bookingURL` (2.048, HTTPS ohne Zugangsdaten), `trackingEnabled`, `notifyOnFirstOpen`, optional `expiresAt` (ISO-Datum/null, höchstens Video-Laufzeit). Dieselbe Request-ID mit unverändertem Inhalt gibt denselben Link zurück; abweichender Inhalt ergibt 409. PATCH akzeptiert die editierbaren Felder ohne Video-/Request-ID.
+
+Snapshots enthalten `sessionId`, `sessionKey`, strikt positive `sequence`, `playedRanges: [[start,end], …]`, `lastPosition`, `ctaClickCount`. Der Server vereinigt Intervalle und berechnet Anteile selbst. Überholte Sequenzen ändern nichts. Eine Session läuft nach 30 Minuten Inaktivität ab. Resume sendet deren ID/Schlüssel erneut an `/sessions`. Tracking aus-/einschalten invalidiert alte Sessions. Vor Zustimmung keine Sammlung und keine Requests; kein Nachtragen zuvor abgespielter Abschnitte.
+
+Listen liefern 50 Einträge, `nextCursor`, `hasMore`; der Cursor wird unverändert als `?after=` übergeben. Statistik ist pro Session; die Zusammenfassung verwendet den besten einzelnen Anteil. Aktivität und Session werden im selben atomaren JSON-Commit geschrieben. Ein begrenzter globaler Writer schützt auch instanzweite Kontingente. Beschädigte Daten werden privat isoliert, als `damaged` angezeigt und lassen die Medienauslieferung weiterlaufen. `DELETE analytics` behebt diesen Zustand. `GET /api/status` liefert `offerAnalytics` mit Speicher-/Session-/Fehlerzahlen, ohne Messpayloads.
+
+Standardlimits: 16 KiB JSON, 256 Intervalle/Session, 12 Snapshots/Minute/Session, 30 Session-Anfragen/Minute/Angebot, 600 öffentliche Messanfragen/Minute/Socket-Adresse. Letzteres ist hinter einem lokalen Proxy ein zusätzlicher Gesamtdeckel; ungeprüfte Forwarded-IP-Header werden nicht vertraut. 10.000 Sessions, 64 MiB Analytics und 10.000 Angebotsdatensätze insgesamt, maximal 100 wartende Operationen. Bei Limit 429/503 bleibt der Player verfügbar. Messfehler blockieren den Terminbutton nie.
+
+Konfiguration (auch in Compose weitergereicht):
+
+- `OFFERS_ENABLED=false`: neue Erstellung/Messung aus, vorhandene Seiten/CTA/Medien weiter verfügbar.
+- `OPERATOR_NAME`, `PRIVACY_URL`: Betreiberangabe und HTTPS-Datenschutzlink.
+- `MAX_ANALYTICS_SESSIONS` (1–10.000), `MAX_ANALYTICS_BYTES` (1–67.108.864), `ANALYTICS_RETENTION_DAYS` (1–90): kleinere Betriebsgrenzen; größere Werte erfordern eine neue Kapazitätsabnahme.
+
+Ein Minuten-Sweeper bereinigt Ablauf und Aufbewahrung; Zugriffe prüfen Gültigkeit sofort. Sessions/Summen/Öffnungsaktivitäten werden nach der Frist entfernt; automatische Bereinigung erzeugt keine neue Erstöffnung. Deaktivierte Angebotsmetadaten und beschädigte Quarantänedateien werden spätestens nach 90 Tagen entfernt. Keine Messpayloads, Schlüssel oder vollständigen Angebotslinks in Proxy-Logs schreiben. Private Daten nicht in öffentliche Supportberichte übernehmen.
+
+### Zusätzliche Abnahme
+
+`npm test` enthält Angebots-, Analytics- und Player-Meter-Regressionen einschließlich 20 gleichzeitiger Sessions. Der native Share-Integrationstest prüft beide Linktypen. Optional prüft `test/browser-acceptance.mjs` mit installiertem Playwright und einem synthetischen 120-Sekunden-MP4 Chrome/WebKit, Zustimmung, Seek/Wiederholung, 390-px-Layout, Tastatur und Nutzung ohne JavaScript. Playwright ist keine Runtime-Abhängigkeit.
+
+```sh
+node test/browser-acceptance.mjs /path/to/synthetic-120.mp4 /tmp/offer-browser-check
+```

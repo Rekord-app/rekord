@@ -1,0 +1,91 @@
+{
+  "checkins": [
+    {
+      "answer": "Ich  schreibe  einen  Kundenbericht  aus  den  erledigten  Aufgaben.  Vor  dem  Senden  prüft  ein  Mensch  den  Entwurf.",
+      "answeredBy": "voice",
+      "blockID": "b-2026-10-14T09-21-30Z",
+      "id": "BDD2A7F1-2473-4677-B316-FE5A330B5D6F",
+      "question": "Woran arbeitest du und warum?",
+      "time": "2026-10-15T11:39:45Z"
+    }
+  ],
+  "examples": [
+    {
+      "blockID": "b-2026-10-14T09-21-30Z",
+      "start": "2026-10-14T09:21:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    },
+    {
+      "blockID": "b-2026-10-14T11-34-30Z",
+      "start": "2026-10-14T11:34:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    },
+    {
+      "blockID": "b-2026-10-14T12-51-30Z",
+      "start": "2026-10-14T12:51:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    },
+    {
+      "blockID": "b-2026-10-14T13-22-30Z",
+      "start": "2026-10-14T13:22:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    }
+  ],
+  "guides": [],
+  "handover_directory": "/private/tmp/rekord-inventur-replay2/Inventur/Prozesse/p-1734ef1e-fab8-43ca-937f-308243463728",
+  "process": {
+    "apiStatus": "prüfen",
+    "apps": [
+      "Mail"
+    ],
+    "automatable": "teilweise",
+    "description": "Projektstatus aus der Aufgabenliste zusammenfassen und einen sachlichen Kundenbericht als E-Mail-Entwurf speichern; vor dem Senden prüft ein Mensch den Entwurf.",
+    "effort": "S",
+    "euroPerMonth": 866.6666666666666,
+    "examples": [
+      "b-2026-10-14T09-21-30Z",
+      "b-2026-10-14T11-34-30Z",
+      "b-2026-10-14T12-51-30Z",
+      "b-2026-10-14T13-22-30Z"
+    ],
+    "id": "p-1734ef1e-fab8-43ca-937f-308243463728",
+    "inputs": [
+      "Aufgabenliste mit erledigten Aufgaben"
+    ],
+    "method": "claudeCode",
+    "minutesPerWeek": 240,
+    "name": "Kunden-Update-Mail als Entwurf erstellen",
+    "occurrences": [
+      "b-2026-10-14T09-21-30Z",
+      "b-2026-10-14T11-34-30Z",
+      "b-2026-10-14T12-51-30Z",
+      "b-2026-10-14T13-22-30Z"
+    ],
+    "openQuestions": [
+      "In welchem Tool wird die Aufgabenliste geführt?",
+      "Wie oft und für welche Kunden werden Updates erstellt?",
+      "Gibt es eine Vorlage oder Struktur für den Bericht?",
+      "Wer prüft den Entwurf vor dem Versand?"
+    ],
+    "outputs": [
+      "Kundenbericht als E-Mail-Entwurf"
+    ],
+    "steps": [
+      "Projektstatus aus Aufgabenliste zusammenfassen",
+      "Sachlichen Kundenbericht formulieren",
+      "Als Entwurf speichern, nicht senden"
+    ],
+    "successCriteria": [
+      "Entwurf enthält alle erledigten Aufgaben aus der Aufgabenliste",
+      "Ton ist sachlich",
+      "E-Mail liegt als Entwurf vor und wurde nicht automatisch versendet",
+      "Ein Mensch hat den Entwurf vor Versand geprüft"
+    ],
+    "timesPerWeek": 20,
+    "trigger": "Unklar; wiederkehrender Bedarf an Projektstand-Information für Kunden"
+  }
+}

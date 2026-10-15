@@ -1,0 +1,6 @@
+{
+  "status": "needs_input",
+  "error": "Projektname und strukturierte Aufgabenliste erforderlich",
+  "sent": false,
+  "requires_human_review": true
+}

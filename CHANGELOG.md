@@ -3,6 +3,41 @@
 Alle Änderungen an Rekord (bis 1.2.0: „Focus Recorder“). Updaten mit `./scripts/update.sh` (siehe [ANLEITUNG.md](ANLEITUNG.md)).
 Neue Einträge kommen oben dazu; die Version steht in `Resources/Info.plist`.
 
+## 1.10.0 – 15.10.2026 · Bibliothek mit Ordnern
+
+- **Ordner** für Aufnahmen (z. B. pro Kunde oder Kanal): in der Seitenleiste anlegen, umbenennen und auflösen. Beim Auflösen bleiben die Aufnahmen erhalten. Es sind normale Finder-Ordner in `~/Movies/Rekord`.
+- **Verschieben** per Drag-and-drop auf einen Ordner oder über „In Ordner verschieben“ im Kontextmenü. Bei gleichem Namen wird nummeriert statt überschrieben. Eine geöffnete Aufnahme bleibt dabei offen.
+- **Kontextmenü** an jeder Aufnahme: Öffnen, Umbenennen, In Ordner verschieben, Im Finder zeigen, In den Papierkorb (mit Rückfrage, im Finder wiederherstellbar). Laufende Aufnahmen und Exporte sind gesperrt.
+- **Vollständige Bibliothek:** „Aufnahmen“ zeigt alle Aufnahmen aus dem Aufnahmeordner und seinen Ordnern statt nur der letzten zwölf. Änderungen im Finder erscheinen von selbst.
+- **Ruhigerer Kopf:** Titel, Anzahl und Suche ohne Glaskarte; in Ordnern als Pfad „Aufnahmen › Kunden“.
+- **„Zuletzt“** zeigt die letzten fünf Aufnahmen und lässt sich per Rechtsklick ausdünnen. Testläufe aus temporären Ordnern landen nicht mehr darin.
+- MCP: `list_recordings` und die Speicher-Aufräumung finden Aufnahmen auch in Ordnern; `list_recordings` meldet den Ordner im Feld `folder`.
+
+## 1.9.0 – 15.10.2026 · Video-Angebote
+
+- Eigene Angebotslinks pro Empfänger mit öffentlichem Titel, Nachricht und **Termin buchen**; dieselbe MP4 wird wiederverwendet. Formular im Teilen-Menü und bei vorhandenen Freigaben, Standard-Buchungslink in den Einstellungen.
+- Wiedergabe-Statistik nach aktiver Zustimmung: echte abgespielte Intervalle statt Vorspulposition, getrennte Sessions, Terminbutton-Klicks. Video und CTA funktionieren auch ohne Messung.
+- Native Auswertung, erste Öffnungsaktivität, lokale macOS-Mitteilungen und Nachladen nach Offlinezeit. Vorschau ohne Statistik, eigene Laufzeit, Linkwiderruf und Statistiklöschung.
+- Abwärtskompatibler Server mit atomarer Persistenz, Aufbewahrung, Limits und Fehlerisolierung. Normale Video-, Anleitungs- und MCP-Freigaben bleiben kompatibel.
+- [Bedienung und Grenzen](docs/VIDEO-ANGEBOTE.md): kein Identitätsnachweis, keine Buchungsbestätigung und keine sofortigen Mitteilungen bei beendeter App.
+
+## 1.8.1 – Launch-Härtung (noch nicht veröffentlicht)
+
+- Anleitungslinks übertragen keine Rohvideos oder Audios mehr. Schritt-Bilder werden vor dem Upload mit den aktuellen Schwärzungen erzeugt.
+- Gemeinsamer, dauerhafter Widerruf von Anleitungsversionen und alten Video-Verknüpfungen; Anleitungslinks in der Freigabeverwaltung.
+- Share-Server: Wiederanlauf nach Widerruf, isolierte beschädigte Anleitungen, Kontingent für zurückbehaltene Bilder und begrenzte parallele Uploads. Zuerst Server auf `guide-lifecycle-v2` aktualisieren.
+- Meeting-Automatik standardmäßig aus, ausdrückliche Aktivierung und sicherer Umstieg alter Einstellungen. Bestätigungen behaupten keine Zustimmung anderer Personen.
+- Funktionsvoraussetzungen und lokale Nutzung ohne Claude-Schlüssel erklärt; Inventur als experimentell gekennzeichnet.
+- Öffentlicher Export geprüft; Paketbau und Veröffentlichung getrennt. Release benötigt Developer ID, Notarisierung und passenden öffentlichen Quellstand.
+
+## 1.8.0 – 15.10.2026 · Arbeits-Inventur
+
+- Lokale Inventur im Hintergrund: Arbeitsblöcke, maskierter Fenstertext, automatische Pausen, eigene Ausschlüsse und jederzeit sichtbare Menüleiste. Kein Inventur-Bild verlässt den Mac.
+- Kurze Rückfragen per lokaler Sprache oder Text; Prozess-Liste mit tatsächlich beobachteter Häufigkeit, Stunden und Euro-Arbeitswert. Tagesbudget und Aufbewahrung einstellbar, im Speicherbereich sichtbar.
+- Übergabe-Pakete an Claude Code, vier Inventur-MCP-Werkzeuge und Eval-Skill mit zehn Testfällen. Team-Modus mit eigener Einwilligung und geprüftem lokalem Prozess-Export.
+- Gemeinsamer Claude-Transport/OCR/AX-Leser; Core-Audio-Zeiger und zwei Release-Concurrency-Warnungen bereinigt. Diagnosen überschreiben den Status der laufenden App nicht.
+- Abnahme mit Fake-Tag: 6/6 Prozesse, zwei lokale Sprachantworten, 28.267 Tokens; Eval 9,80/10. Live-Abnahme braucht noch Bedienungshilfen-Recht, echte Nutzung und menschliche Stichproben. [Belege](docs/validation/inventory/acceptance.md).
+
 ## 1.7.0 – 15.10.2026 · Speicher im Griff
 
 **Neu**

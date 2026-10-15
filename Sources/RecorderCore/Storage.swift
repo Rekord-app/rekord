@@ -17,9 +17,10 @@ public enum Storage {
     }
     public struct Usage: Equatable, Sendable {
         public var studio: Int64 = 0, loom: Int64 = 0, meetings: Int64 = 0, guides: Int64 = 0
+        public var inventoryImages: Int64 = 0, inventorySamples: Int64 = 0
         public var freeOnDisk: Int64 = 0
         public var recordings: Int64 { studio+loom }
-        public var total: Int64 { studio+loom+meetings+guides }
+        public var total: Int64 { studio+loom+meetings+guides+inventoryImages+inventorySamples }
     }
     public struct Policy: Codable, Equatable, Sendable {
         /// Days after which shared Loom takes go to the Trash; nil = never.
@@ -37,11 +38,10 @@ public enum Storage {
         public var item: Item { switch self { case .trash(let item),.archive(let item,_): return item } }
     }
 
-    /// Recording projects directly in `folder` (meetings and guides live in their own subfolders and are skipped).
+    /// Recording projects in `folder` and its user folders (meetings, guides and inventory are skipped).
     public static func scan(_ folder: URL) -> [Item] {
         let files = FileManager.default
-        guard let entries = try? files.contentsOfDirectory(at: folder,includingPropertiesForKeys: nil) else { return [] }
-        return entries.filter(ProjectFolder.isProject).compactMap { dir in
+        return Library.projects(in: folder).compactMap { dir in
             let json = dir.appendingPathComponent("project.json")
             guard let data = try? Data(contentsOf: json), let project = try? JSONDecoder().decode(Project.self,from: data),
                   let modified = (try? json.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate else { return nil }
@@ -54,6 +54,8 @@ public enum Storage {
         for item in scan(folder) { if item.mode == .loom { usage.loom += item.bytes } else { usage.studio += item.bytes } }
         usage.meetings = size(of: folder.appendingPathComponent("Meetings"))
         usage.guides = size(of: folder.appendingPathComponent("Anleitungen"))
+        let inventory = InventoryRetention.usage(root: folder.appendingPathComponent("Inventur"))
+        usage.inventoryImages = inventory.images; usage.inventorySamples = inventory.samples
         let values = try? URL(fileURLWithPath: NSHomeDirectory()).resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         usage.freeOnDisk = values?.volumeAvailableCapacityForImportantUsage ?? 0
         return usage

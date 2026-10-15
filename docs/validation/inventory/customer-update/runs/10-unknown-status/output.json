@@ -1,0 +1,6 @@
+{
+  "status": "needs_input",
+  "error": "Aufgabe braucht ID, Titel und Status done/open/next",
+  "sent": false,
+  "requires_human_review": true
+}

@@ -85,6 +85,14 @@ func testGuides() throws {
     XCTAssertEqual(try GuideImages.sensitiveRegions(in: rendered).count,0)
     try FileManager.default.createDirectory(at: directory.appendingPathComponent("images"),withIntermediateDirectories: true)
     try GuideImages.writeJPEG(rendered,to: directory.appendingPathComponent("images/step-01.jpg"))
+    let payload = try GuideSharing.payload(guide: guide,directory: directory,brief: nil)
+    let shared = try JSONSerialization.jsonObject(with: payload) as! [String: Any]
+    XCTAssertEqual(shared["sourceGuideId"] as? String,guide.id)
+    precondition(shared["videoId"] == nil && shared["video"] == nil && shared["transcript"] == nil)
+    let images = shared["steps"] as! [[String: Any]]
+    XCTAssertEqual(Data(base64Encoded: images[0]["image"] as! String),try Data(contentsOf: directory.appendingPathComponent("images/step-01.jpg")))
+    var unsafe = guide; unsafe.steps[0].image = "../secret.jpg"
+    do { _ = try GuideSharing.payload(guide: unsafe,directory: directory,brief: nil); preconditionFailure("Traversal must fail") } catch {}
     let pdf = directory.appendingPathComponent(GuideFile.pdf)
     try GuidePDF.write(guide,directory: directory,to: pdf)
     let document = CGPDFDocument(pdf as CFURL)!

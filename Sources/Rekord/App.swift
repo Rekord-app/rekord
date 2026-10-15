@@ -13,6 +13,7 @@ import RecorderCore
                 .frame(minWidth: 1100,minHeight: 740)
                 .onAppear {
                     delegate.attach(store)
+                    store.meetings.explainMigrationIfNeeded()
                     if !CommandLine.arguments.contains("--exit-after-diagnostics"),store.workspace == .record { store.updateMonitor() }
                 }
                 .onDisappear { store.suspendMonitor() }
@@ -45,6 +46,9 @@ import RecorderCore
     private var pendingOpen: URL?
     func attach(_ store: EditorStore) {
         self.store = store
+        store.shareActivity.client = { [weak store] in guard let store else { throw ShareError.message("Rekord wurde geschlossen.") }; return try store.shareClient() }
+        store.shareActivity.start()
+        if let info = pendingNotification { pendingNotification = nil; handleNotification(info) }
         store.updateHotKeys()
         if let pendingOpen { self.pendingOpen = nil; store.open(pendingOpen) }
         if let pendingCommand { self.pendingCommand = nil; store.handleCommand(pendingCommand) }
@@ -64,6 +68,8 @@ import RecorderCore
         await HardeningDiagnostics.run(arguments: CommandLine.arguments)
         await MeetingDiagnostics.run(arguments: CommandLine.arguments)
         await GuideDiagnostics.run(arguments: CommandLine.arguments)
+        await InventoryDiagnostics.run(arguments: CommandLine.arguments)
+        await OfferDiagnostics.run(arguments: CommandLine.arguments)
         if CommandLine.arguments.contains("--exit-after-diagnostics") { NSApplication.shared.terminate(nil) }
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -103,13 +109,20 @@ import RecorderCore
         if let store { store.open(url) } else { pendingOpen = url }
     }
     private var pendingCommand: URL?
-    /// „Transkript fertig“ notification → open that meeting.
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,didReceive response: UNNotificationResponse) async {
-        guard let path = response.notification.request.content.userInfo["meeting"] as? String else { return }
-        await MainActor.run {
-            guard let store else { return }
-            store.showMeetings(); store.meetings.reload(); store.meetings.selected = store.meetings.meetings.first { $0.path.hasPrefix(path) || path.hasPrefix($0.path) }
+    private var pendingNotification: [AnyHashable:Any]?
+    func handleNotification(_ info: [AnyHashable:Any]) {
+        guard let store else { pendingNotification = info; return }
+        if let id = info["offer"] as? String {
+            guard info["offerServer"] as? String == UserDefaults.standard.string(forKey: "shareServer") else { return }
+            store.shareActivity.selectedID = id; store.showShareSettings = false; store.showVideoOffers = true
+        } else if let path = info["meeting"] as? String {
+            store.showVideoOffers = false; store.showMeetings(); store.meetings.reload()
+            store.meetings.selected = store.meetings.meetings.first { $0.path.hasPrefix(path) || path.hasPrefix($0.path) }
         }
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,didReceive response: UNNotificationResponse) async {
+        await MainActor.run { self.handleNotification(response.notification.request.content.userInfo) }
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,willPresent notification: UNNotification) async -> UNNotificationPresentationOptions { [.banner,.sound] }
 }

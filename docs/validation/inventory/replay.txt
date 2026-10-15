@@ -1,0 +1,19 @@
+START Fixture 360 Min., 410 Proben, 17 Vorschnitt-Blöcke; AX=false, gesperrt=false
+PASS 2 Sprach-Antworten lokal transkribiert
+PASS Angebot schreiben: 2 statt 2, Zuordnung 2, Modellname Angebot erstellen und zur Freigabe ablegen
+PASS Call-Vorbereitung: 2 statt 2, Zuordnung 2, Modellname Beratungsgespräch vorbereiten
+PASS Kunden-Update-Mail: 4 statt 4, Zuordnung 4, Modellname Kunden-Update-Mail als Entwurf erstellen
+PASS Lead-Liste pflegen: 3 statt 3, Zuordnung 3, Modellname Lead-Liste im CRM pflegen
+PASS LinkedIn-Nachrichten: 3 statt 3, Zuordnung 3, Modellname LinkedIn-Ansprache und Nachverfolgung
+PASS Rechnung anlegen: 2 statt 2, Zuordnung 2, Modellname Rechnungsentwurf aus freigegebenem Angebot anlegen
+PASS 6/6 Prozesse erkannt mit Häufigkeit ±1
+PASS kein Rauschen, keine ausgeschlossenen Zeiten im Katalog
+PASS plausible Stunden aus Blockdauern
+PASS Übergabe-Paket: p-221ac741-2a52-43df-afb9-1d0e6420bdda · Kunden-Update-Mail als Entwurf erstellen
+INFO Verbindungen: ["160.79.104.10:443"]
+PASS beobachtete Verbindungen nur api.anthropic.com:443
+PASS keine Fake-E-Mail/IBAN/Ausschlussdaten in gespeicherten Dateien: []
+PASS Anfrage nur maskierter Text
+PASS usage.json: 16807 Input + 11460 Output = 28267 Tokens, 32598 Request-Bytes
+INFO Daten 262144 Bytes, Replay 106.4 s
+DONE

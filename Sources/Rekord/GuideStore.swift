@@ -26,6 +26,7 @@ import RecorderCore
     var microphoneID: () -> String = { "" }
     /// Diagnostics: keep template texts, never call Claude.
     var skipClaude = false
+    var nextTitle: String?
     var onPhaseChange: (() -> Void)?
     var bringForward: (() -> Void)?
     var shareClient: () -> ShareClient? = { nil }
@@ -114,6 +115,7 @@ import RecorderCore
         var guide = Guide(title: "Anleitung",duration: project.duration,steps: GuideBuilder.steps(from: capture,address: address))
         guide.address = address
         if let app = guide.apps.first { guide.title = "Anleitung: \(app)" }
+        if let title = nextTitle { guide.title = title; nextTitle = nil }
         guard !guide.steps.isEmpty else {
             try guide.save(to: directory)
             throw RecorderError.message(capture.accessibility || !capture.events.isEmpty ? GuideError.noSteps.localizedDescription : "Es wurden keine Klicks erfasst. Bitte Rekord unter Datenschutz & Sicherheit → Bedienungshilfen erlauben und neu aufnehmen.")
@@ -209,12 +211,43 @@ import RecorderCore
         Task {
             do {
                 let shared = try await GuideSharing.upload(guide: guide,directory: url,client: client) { [weak self] value in
-                    Task { @MainActor in self?.progress = "Video wird hochgeladen … \(Int(value*100)) %" }
+                    Task { @MainActor in self?.progress = "Anleitung wird hochgeladen … \(Int(value*100)) %" }
                 }
                 NSPasteboard.general.clearContents(); NSPasteboard.general.setString(shared.url.absoluteString,forType: .string)
                 notice = "Link kopiert: \(shared.url.absoluteString)"
             } catch { self.error = error.localizedDescription }
             phase = .idle; progress = ""; onPhaseChange?(); revision += 1
+        }
+    }
+    func reconcileShares(_ active: [SharedGuide],client: ShareClient) {
+        let ids = Set(active.map(\.id))
+        for directory in guides {
+            guard let record = GuideSharing.record(in: directory),
+                  record.url.scheme == client.baseURL.scheme,record.url.host == client.baseURL.host,record.url.port == client.baseURL.port,
+                  record.url.path == client.baseURL.path+"/g/\(record.guideID)",!ids.contains(record.guideID) else { continue }
+            do { try FileManager.default.removeItem(at: directory.appendingPathComponent(GuideFile.share)) }
+            catch { self.error = "Serverlink ist deaktiviert; lokaler Freigabestatus konnte nicht aktualisiert werden: \(error.localizedDescription)" }
+        }
+        revision += 1
+    }
+    func revokeShare(_ url: URL) {
+        guard phase == .idle,let record = GuideSharing.record(in: url),let client = shareClient() else { return }
+        phase = .processing; onPhaseChange?()
+        Task {
+            defer { phase = .idle; onPhaseChange?(); revision += 1 }
+            do {
+                try await client.requireGuideLifecycle()
+                let active = try await client.guides()
+                guard active.contains(where: { $0.id == record.guideID && $0.url == record.url }) else { reconcileShares(active,client: client); return }
+                let impact = ShareRevocation(guideID: record.guideID,guides: active)
+                let alert = NSAlert(); alert.messageText = "Anleitungsfreigaben deaktivieren?"
+                alert.informativeText = impact.description(guides: active)
+                alert.addButton(withTitle: "Freigaben deaktivieren"); alert.addButton(withTitle: "Abbrechen")
+                guard alert.runModal() == .alertFirstButtonReturn else { return }
+                try await client.revokeGuide(record.guideID)
+                reconcileShares(try await client.guides(),client: client)
+                notice = "Freigaben deaktiviert. Bereits heruntergeladene Kopien bleiben beim Empfänger."
+            } catch { self.error = error.localizedDescription }
         }
     }
     func delete(_ url: URL) {

@@ -228,6 +228,7 @@ struct GuideDetailView: View {
                     Divider()
                     Toggle("„Automatisieren lassen“ auf der geteilten Seite",isOn: Binding(get: { guide?.showCallToAction ?? true },set: { value in update { $0.showCallToAction = value } }))
                     Button("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                    Button("Freigaben deaktivieren …",role: .destructive) { guides.revokeShare(url) }.disabled(GuideSharing.record(in: url) == nil)
                     Button("Löschen …",role: .destructive) { guides.delete(url) }
                 } label: { Image(systemName: "ellipsis").font(.system(size: 13,weight: .semibold)).frame(width: 30,height: 30) }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()

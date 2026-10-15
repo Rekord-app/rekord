@@ -1,0 +1,334 @@
+{
+  "date": "2026-10-14T08:00:00Z",
+  "expected": {
+    "Lead-Liste pflegen": 3,
+    "Angebot schreiben": 2,
+    "Rechnung anlegen": 2,
+    "Kunden-Update-Mail": 4,
+    "LinkedIn-Nachrichten": 3,
+    "Call-Vorbereitung": 2
+  },
+  "contexts": [
+    {
+      "expected": "Lead-Liste pflegen",
+      "minutes": 25,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://crm.example.test/leads",
+      "windowTitle": "Lead-Liste pflegen – Projekt Beispiel 1",
+      "text": "Neue Leads aus Branchenliste übernehmen, Firmendaten ergänzen, Dubletten prüfen, Status recherchiert setzen. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Angebot schreiben",
+      "minutes": 40,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://docs.example.test/angebote",
+      "windowTitle": "Angebot schreiben – Projekt Beispiel 1",
+      "text": "Leistungsumfang aus Briefing übernehmen, Aufwand kalkulieren, Angebot formulieren und intern zur Freigabe ablegen. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Rechnung anlegen",
+      "minutes": 15,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://rechnung.example.test/entwurf",
+      "windowTitle": "Rechnung anlegen – Projekt Beispiel 1",
+      "text": "Freigegebenes Angebot öffnen, Rechnungspositionen übernehmen, Betrag und Steuer prüfen, Rechnungsentwurf speichern. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Kunden-Update-Mail",
+      "minutes": 12,
+      "appName": "Mail",
+      "bundleID": "com.apple.mail",
+      "url": "https://mail.example.test/update",
+      "windowTitle": "Kunden-Update-Mail – Projekt Beispiel 1",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "LinkedIn-Nachrichten",
+      "minutes": 18,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://www.linkedin.com/messaging",
+      "windowTitle": "LinkedIn-Nachrichten – Projekt Beispiel 1",
+      "text": "Profil des Kontakts lesen, individuelle Nachricht formulieren, Antwort kategorisieren, nächsten Schritt im CRM notieren. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Call-Vorbereitung",
+      "minutes": 20,
+      "appName": "Slack",
+      "bundleID": "com.tinyspeck.slackmacgap",
+      "url": "https://slack.example.test/call",
+      "windowTitle": "Call-Vorbereitung – Projekt Beispiel 1",
+      "text": "Kundenbriefing und letzte Gesprächsnotizen lesen, offene Fragen sammeln, Agenda für Beratungsgespräch vorbereiten. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Lead-Liste pflegen",
+      "minutes": 25,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://crm.example.test/leads",
+      "windowTitle": "Lead-Liste pflegen – Projekt Beispiel 2",
+      "text": "Neue Leads aus Branchenliste übernehmen, Firmendaten ergänzen, Dubletten prüfen, Status recherchiert setzen. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Angebot schreiben",
+      "minutes": 40,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://docs.example.test/angebote",
+      "windowTitle": "Angebot schreiben – Projekt Beispiel 2",
+      "text": "Leistungsumfang aus Briefing übernehmen, Aufwand kalkulieren, Angebot formulieren und intern zur Freigabe ablegen. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Rechnung anlegen",
+      "minutes": 15,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://rechnung.example.test/entwurf",
+      "windowTitle": "Rechnung anlegen – Projekt Beispiel 2",
+      "text": "Freigegebenes Angebot öffnen, Rechnungspositionen übernehmen, Betrag und Steuer prüfen, Rechnungsentwurf speichern. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Kunden-Update-Mail",
+      "minutes": 12,
+      "appName": "Mail",
+      "bundleID": "com.apple.mail",
+      "url": "https://mail.example.test/update",
+      "windowTitle": "Kunden-Update-Mail – Projekt Beispiel 2",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "LinkedIn-Nachrichten",
+      "minutes": 18,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://www.linkedin.com/messaging",
+      "windowTitle": "LinkedIn-Nachrichten – Projekt Beispiel 2",
+      "text": "Profil des Kontakts lesen, individuelle Nachricht formulieren, Antwort kategorisieren, nächsten Schritt im CRM notieren. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Call-Vorbereitung",
+      "minutes": 20,
+      "appName": "Slack",
+      "bundleID": "com.tinyspeck.slackmacgap",
+      "url": "https://slack.example.test/call",
+      "windowTitle": "Call-Vorbereitung – Projekt Beispiel 2",
+      "text": "Kundenbriefing und letzte Gesprächsnotizen lesen, offene Fragen sammeln, Agenda für Beratungsgespräch vorbereiten. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Lead-Liste pflegen",
+      "minutes": 25,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://crm.example.test/leads",
+      "windowTitle": "Lead-Liste pflegen – Projekt Beispiel 3",
+      "text": "Neue Leads aus Branchenliste übernehmen, Firmendaten ergänzen, Dubletten prüfen, Status recherchiert setzen. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Kunden-Update-Mail",
+      "minutes": 12,
+      "appName": "Mail",
+      "bundleID": "com.apple.mail",
+      "url": "https://mail.example.test/update",
+      "windowTitle": "Kunden-Update-Mail – Projekt Beispiel 3",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "LinkedIn-Nachrichten",
+      "minutes": 18,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://www.linkedin.com/messaging",
+      "windowTitle": "LinkedIn-Nachrichten – Projekt Beispiel 3",
+      "text": "Profil des Kontakts lesen, individuelle Nachricht formulieren, Antwort kategorisieren, nächsten Schritt im CRM notieren. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": "Kunden-Update-Mail",
+      "minutes": 12,
+      "appName": "Mail",
+      "bundleID": "com.apple.mail",
+      "url": "https://mail.example.test/update",
+      "windowTitle": "Kunden-Update-Mail – Projekt Beispiel 4",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: inventur.fixture@example.test. IBAN DE89 3704 0044 0532 0130 00."
+    },
+    {
+      "expected": null,
+      "minutes": 0.5,
+      "appName": "",
+      "bundleID": "",
+      "windowTitle": "",
+      "text": "",
+      "paused": "idle"
+    },
+    {
+      "expected": null,
+      "minutes": 10,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "url": "https://youtube.com/watch",
+      "windowTitle": "YouTube – Katzenvideo Unterhaltung",
+      "text": "Freizeit: lustige Katzen, keine Arbeit."
+    },
+    {
+      "expected": null,
+      "minutes": 5,
+      "appName": "Safari",
+      "bundleID": "com.apple.Safari",
+      "windowTitle": "Privates Surfen",
+      "text": "NIEMALS_SPEICHERN"
+    },
+    {
+      "expected": null,
+      "minutes": 5,
+      "appName": "1Password",
+      "bundleID": "com.1password.1password",
+      "windowTitle": "Tresor",
+      "text": "NIEMALS_SPEICHERN"
+    },
+    {
+      "expected": null,
+      "minutes": 5,
+      "appName": "Rekord",
+      "bundleID": "dev.sapunov.FocusRecorder",
+      "windowTitle": "Einstellungen",
+      "text": "NIEMALS_SPEICHERN"
+    }
+  ]
+}

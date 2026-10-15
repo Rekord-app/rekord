@@ -1,0 +1,12 @@
+{
+  "duration_seconds": 600.3,
+  "ticks": 120,
+  "ocr_redacted_jpegs": 20,
+  "cpu_seconds_observed": 2.7,
+  "mean_cpu_percent_one_core": 0.45,
+  "peak_rss_MiB": 77.6875,
+  "allocated_bytes": 593920,
+  "synthetic_only": true,
+  "screen_capture": false,
+  "network": false
+}

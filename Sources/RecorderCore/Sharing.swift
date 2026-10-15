@@ -16,17 +16,49 @@ extension ISO8601DateFormatter {
     static var withFractions: ISO8601DateFormatter { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime,.withFractionalSeconds]; return f }
 }
 public struct SharedGuide: Codable, Sendable {
+    public let sourceGuideId: String?
+    public let videoId: String?
     public let id: String
     public let url: URL
     public let title: String
     public let bytes: Int64
     public let createdAt: String
 }
+/// Connected legacy video links and revisions of the same local guide are revoked together.
+public struct ShareRevocation: Sendable {
+    public var guideIDs: Set<String>
+    public var videoIDs: Set<String>
+    public init(guideID: String? = nil,videoID: String? = nil,guides: [SharedGuide]) {
+        guideIDs = Set(guideID.map { [$0] } ?? []); videoIDs = Set(videoID.map { [$0] } ?? [])
+        var sources = Set<String>(), changed = true
+        while changed {
+            changed = false
+            for guide in guides where guideIDs.contains(guide.id) || guide.videoId.map(videoIDs.contains) == true || guide.sourceGuideId.map(sources.contains) == true {
+                if guideIDs.insert(guide.id).inserted { changed = true }
+                if let video = guide.videoId,videoIDs.insert(video).inserted { changed = true }
+                if let source = guide.sourceGuideId,sources.insert(source).inserted { changed = true }
+            }
+        }
+    }
+    public func description(guides: [SharedGuide]) -> String {
+        let titles = guides.filter { guideIDs.contains($0.id) }.map(\.title).joined(separator: "\n")
+        return "\(guideIDs.count) Anleitungslinks und \(videoIDs.count) Videolinks werden deaktiviert. Alle Revisionen und gemeinsam verknüpften alten Videos gehören dazu. Lokale Dateien bleiben erhalten.\n\n"+titles
+    }
+}
 public struct ShareServiceStatus: Decodable, Sendable {
     public let service: String
     public let version: Int
     public let maxUploadBytes: Int64
     public let availableBytes: Int64
+    public let features: [String]
+    public var supportsOffers: Bool { features.contains("video-offers-v1") }
+    private enum CodingKeys: String, CodingKey { case service, version, maxUploadBytes, availableBytes, features }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        service = try c.decode(String.self,forKey: .service); version = try c.decode(Int.self,forKey: .version)
+        maxUploadBytes = try c.decode(Int64.self,forKey: .maxUploadBytes); availableBytes = try c.decode(Int64.self,forKey: .availableBytes)
+        features = try c.decodeIfPresent([String].self,forKey: .features) ?? []
+    }
 }
 public enum ShareError: LocalizedError {
     case message(String)
@@ -92,6 +124,7 @@ public struct ShareClient: Sendable {
               video.url.scheme == baseURL.scheme,video.url.host == baseURL.host,video.url.port == baseURL.port,video.url.path == baseURL.path+"/v/\(video.id)",video.url.user == nil,video.url.password == nil,video.url.query == nil,video.url.fragment == nil else { throw ShareError.message("Der Server hat einen ungültigen Freigabelink geliefert.") }
     }
     public func revoke(_ id: String) async throws {
+        try await requireGuideLifecycle()
         guard id.range(of: "^[A-Za-z0-9_-]{32}$",options: .regularExpression) != nil else { throw ShareError.message("Ungültige Freigabe.") }
         _ = try await request(path: "api/videos/\(id)",method: "DELETE")
     }
@@ -108,8 +141,9 @@ public struct ShareClient: Sendable {
         let result = try JSONDecoder().decode(SharedVideo.self,from: data)
         try validate(result); return result
     }
-    /// Publishes a guide page (JSON with step texts, JPEG images as base64, optional brief and video id).
+    /// Publishes a guide page (JSON with step texts, JPEG images as base64, optional brief; raw video is never attached).
     public func uploadGuide(_ body: Data) async throws -> SharedGuide {
+        try await requireGuideLifecycle()
         var req = authorized(path: "api/guides",method: "POST")
         req.setValue("application/json",forHTTPHeaderField: "Content-Type")
         req.setValue(String(body.count),forHTTPHeaderField: "Content-Length")
@@ -118,14 +152,88 @@ public struct ShareClient: Sendable {
         let (data,response) = try await session.upload(for: req,from: body,delegate: delegate)
         try check(response: response,data: data)
         let result = try JSONDecoder().decode(SharedGuide.self,from: data)
-        guard result.id.range(of: "^[A-Za-z0-9_-]{32}$",options: .regularExpression) != nil,result.url.host == baseURL.host,result.url.scheme == baseURL.scheme,result.url.path == baseURL.path+"/g/\(result.id)" else {
-            throw ShareError.message("Der Server hat einen ungültigen Freigabelink geliefert.")
-        }
+        try validate(result)
         return result
     }
+    public func requireGuideLifecycle() async throws {
+        guard try await status().features.contains("guide-lifecycle-v2") == true else {
+            throw ShareError.message("Bitte zuerst den Share-Server aktualisieren. Sichere Anleitungsfreigaben benötigen guide-lifecycle-v2.")
+        }
+    }
+    public func guides() async throws -> [SharedGuide] {
+        struct Listing: Decodable { let guides: [SharedGuide] }
+        let guides = try JSONDecoder().decode(Listing.self,from: await request(path: "api/guides",method: "GET")).guides
+        for guide in guides { try validate(guide) }
+        return guides
+    }
+    private func validate(_ guide: SharedGuide) throws {
+        guard guide.id.range(of: "^[A-Za-z0-9_-]{32}$",options: .regularExpression) != nil, guide.bytes >= 0,
+              guide.url.scheme == baseURL.scheme,guide.url.host == baseURL.host,guide.url.port == baseURL.port,
+              guide.url.path == baseURL.path+"/g/\(guide.id)",guide.url.user == nil,guide.url.password == nil,guide.url.query == nil,guide.url.fragment == nil,
+              guide.videoId == nil || guide.videoId?.range(of: "^[A-Za-z0-9_-]{32}$",options: .regularExpression) != nil else {
+            throw ShareError.message("Der Server hat einen ungültigen Freigabelink geliefert.")
+        }
+    }
     public func revokeGuide(_ id: String) async throws {
+        try await requireGuideLifecycle()
         guard id.range(of: "^[A-Za-z0-9_-]{32}$",options: .regularExpression) != nil else { throw ShareError.message("Ungültige Freigabe.") }
         _ = try await request(path: "api/guides/\(id)",method: "DELETE")
+    }
+    public func offers(after: String = "") async throws -> OfferListing {
+        let result = try JSONDecoder().decode(OfferListing.self,from: await offerRequest(path: "api/offers",after: after))
+        for offer in result.offers { try validateOffer(offer) }; return result
+    }
+    public func createOffer(_ draft: OfferDraft) async throws -> VideoOffer {
+        try draft.validate()
+        let result = try JSONDecoder().decode(VideoOffer.self,from: await offerRequest(path: "api/offers",method: "POST",body: JSONEncoder().encode(draft)))
+        try validateOffer(result); return result
+    }
+    public func updateOffer(_ id: String,draft: OfferDraft) async throws -> VideoOffer {
+        try draft.validate(); try checkOfferID(id)
+        let data = try JSONSerialization.data(withJSONObject: ["title":draft.title,"recipientLabel":draft.recipientLabel,"message":draft.message,"bookingURL":draft.bookingURL,"trackingEnabled":draft.trackingEnabled,"notifyOnFirstOpen":draft.notifyOnFirstOpen])
+        let result = try JSONDecoder().decode(VideoOffer.self,from: await offerRequest(path: "api/offers/\(id)",method: "PATCH",body: data))
+        try validateOffer(result); return result
+    }
+    public func setOfferExpiry(_ id: String,date: Date?) async throws -> VideoOffer {
+        try checkOfferID(id)
+        let data = try JSONSerialization.data(withJSONObject: ["expiresAt":date.map { ISO8601DateFormatter().string(from: $0) } as Any? ?? NSNull()])
+        let result = try JSONDecoder().decode(VideoOffer.self,from: await offerRequest(path: "api/offers/\(id)",method: "PATCH",body: data))
+        try validateOffer(result); return result
+    }
+    public func offerAnalytics(_ id: String,after: String = "") async throws -> OfferAnalytics {
+        try checkOfferID(id)
+        return try JSONDecoder().decode(OfferAnalytics.self,from: await offerRequest(path: "api/offers/\(id)/analytics",after: after))
+    }
+    public func offerActivity(after: String = "") async throws -> OfferActivityPage {
+        try JSONDecoder().decode(OfferActivityPage.self,from: await offerRequest(path: "api/offer-activity",after: after))
+    }
+    public func revokeOffer(_ id: String) async throws { try checkOfferID(id); _ = try await offerRequest(path: "api/offers/\(id)",method: "DELETE") }
+    public func clearOfferAnalytics(_ id: String) async throws { try checkOfferID(id); _ = try await offerRequest(path: "api/offers/\(id)/analytics",method: "DELETE") }
+    public func offerPreview(_ id: String) async throws -> URL {
+        try checkOfferID(id)
+        struct Preview: Decodable { let url: URL }
+        let url = try JSONDecoder().decode(Preview.self,from: await offerRequest(path: "api/offers/\(id)/preview",method: "POST")).url
+        guard validOfferURL(url,id: id,preview: true) else { throw ShareError.message("Ungültige Vorschau-URL.") }; return url
+    }
+    private func checkOfferID(_ id: String) throws {
+        guard id.range(of: "^[A-Za-z0-9_-]{32}$",options: .regularExpression) != nil else { throw ShareError.message("Ungültiges Angebot.") }
+    }
+    private func validOfferURL(_ url: URL,id: String,preview: Bool = false) -> Bool {
+        guard url.scheme == baseURL.scheme,url.host == baseURL.host,url.port == baseURL.port,url.path == baseURL.path+"/o/\(id)",url.user == nil,url.password == nil,url.fragment == nil else { return false }
+        if !preview { return url.query == nil }
+        let items = URLComponents(url: url,resolvingAgainstBaseURL: false)?.queryItems ?? []
+        return items.count == 1 && items[0].name == "preview" && !(items[0].value ?? "").isEmpty
+    }
+    private func validateOffer(_ offer: VideoOffer) throws {
+        try checkOfferID(offer.id); try checkOfferID(offer.videoId)
+        guard validOfferURL(offer.url,id: offer.id),offer.durationSeconds.isFinite,offer.durationSeconds > 0 else { throw ShareError.message("Ungültiges Video-Angebot vom Server.") }
+    }
+    private func offerRequest(path: String,method: String = "GET",body: Data? = nil,after: String = "") async throws -> Data {
+        var req = authorized(path: path,method: method)
+        if !after.isEmpty { var parts = URLComponents(url: req.url!,resolvingAgainstBaseURL: false)!; parts.queryItems = [URLQueryItem(name: "after",value: after)]; req.url = parts.url }
+        if let body { req.httpBody = body; req.setValue("application/json",forHTTPHeaderField: "Content-Type") }
+        let session = makeSession(); defer { session.invalidateAndCancel() }
+        let (data,response) = try await session.data(for: req,delegate: TransferDelegate()); try check(response: response,data: data); return data
     }
     private func authorized(path: String,method: String) -> URLRequest {
         var request = URLRequest(url: baseURL.appendingPathComponent(path)); request.httpMethod = method

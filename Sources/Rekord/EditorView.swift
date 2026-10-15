@@ -15,6 +15,8 @@ struct EditorView: View {
                     HomeView()
                 } else if store.workspace == .meetings {
                     MeetingsView(meetings: store.meetings)
+                } else if store.workspace == .inventory {
+                    InventoryView(inventory: store.inventory)
                 } else if store.workspace == .guides {
                     GuidesView(guides: store.guides)
                 } else {
@@ -35,6 +37,8 @@ struct EditorView: View {
         .background(StudioTheme.background).tint(StudioTheme.accent)
         .background(WindowAccessor { window in if store.mainWindow !== window { store.mainWindow = window } })
         .sheet(isPresented: $store.showShareSettings) { ShareSettingsView().environmentObject(store) }
+        .sheet(isPresented: $store.showVideoOffers) { VideoOffersView(activity: store.shareActivity).environmentObject(store) }
+        .sheet(item: $store.offerVideo) { video in VideoOfferForm(videoID: video.id,title: video.title,expiresAt: video.expiresAt).environmentObject(store) }
         .sheet(isPresented: $audiencePresented) { AudienceView().environmentObject(store) }
         .onChange(of: store.selectedSource) { store.updateMonitor() }
         .onChange(of: store.withCamera) { store.updateMonitor() }
@@ -117,8 +121,11 @@ private struct Sidebar: View {
                 HStack(spacing: 8) { RecordDot(); Text("Neue Aufnahme").lineLimit(1); Spacer(minLength: 0) }
             }.buttonStyle(AccentButtonStyle(height: 38)).disabled(store.busy).padding(.bottom,18).help("Neue Aufnahme · ⌘⇧1")
             VStack(spacing: 2) {
-                nav("Aufnahmen",icon: "rectangle.stack",selected: store.workspace == .record,count: store.recent.count) { store.showRecordingSetup() }
+                nav("Aufnahmen",icon: "rectangle.stack",selected: store.workspace == .record && store.folderFilter == nil,count: store.library.count) { store.showLibrary(folder: nil) }
+                    .libraryDrop(store: store,folder: nil)
                 nav("Meetings",icon: "waveform.badge.mic",selected: store.workspace == .meetings,count: meetings.meetings.count) { store.showMeetings() }
+                nav("Inventur",icon: "chart.bar.doc.horizontal",selected: store.workspace == .inventory,count: nil) { store.showInventory() }
+                nav("Video-Angebote",icon: "paperplane",selected: false,count: nil) { store.showVideoOffers = true }
                 nav("Anleitungen",icon: "list.number",selected: store.workspace == .guides,count: store.guides.guides.count) { store.showGuides() }
             }
             if store.project != nil {
@@ -127,20 +134,34 @@ private struct Sidebar: View {
                     nav(store.displayName,icon: "slider.horizontal.3",selected: store.workspace == .edit,count: nil) { store.showEditor() }.disabled(store.busy)
                 }.padding(.top,18)
             }
-            VStack(alignment: .leading,spacing: 6) {
-                HStack {
-                    Text("Zuletzt").eyebrow()
-                    Spacer()
-                    Button { store.openProject() } label: { Image(systemName: "folder.badge.plus").font(.system(size: 12,weight: .medium)) }
-                        .buttonStyle(.plain).foregroundStyle(StudioTheme.textTertiary).help("Projekt öffnen · ⌘O").accessibilityLabel("Projekt öffnen").disabled(store.busy)
-                }.padding(.horizontal,8)
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 1) {
-                        ForEach(store.recent.prefix(8),id: \.self) { url in RecentRow(url: url) }
-                        if store.recent.isEmpty { Text("Deine Videos erscheinen hier nach der ersten Aufnahme.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary).frame(maxWidth: .infinity,alignment: .leading).padding(8) }
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading,spacing: 18) {
+                    VStack(alignment: .leading,spacing: 6) {
+                        sectionHeader("Ordner",icon: "plus",help: "Neuer Ordner") { newName = ""; creating = true }
+                        VStack(spacing: 1) {
+                            ForEach(store.folders,id: \.self) { folder in
+                                FolderRow(folder: folder,count: store.recordings(inFolder: folder.lastPathComponent).count,
+                                          rename: { newName = folder.lastPathComponent; renaming = folder },
+                                          dissolve: { dissolving = folder })
+                            }
+                            if store.folders.isEmpty {
+                                Button { newName = ""; creating = true } label: {
+                                    Text("Ordner für Kunden oder Projekte anlegen").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
+                                        .frame(maxWidth: .infinity,alignment: .leading).padding(.horizontal,8).padding(.vertical,4).contentShape(Rectangle())
+                                }.buttonStyle(.plain).disabled(store.busy)
+                            }
+                        }
                     }
-                }
-            }.padding(.top,22).frame(maxHeight: .infinity,alignment: .top)
+                    VStack(alignment: .leading,spacing: 6) {
+                        sectionHeader("Zuletzt",icon: "arrow.up.right.square",help: "Projekt öffnen · ⌘O") { store.openProject() }
+                        VStack(spacing: 1) {
+                            ForEach(store.recent.prefix(5),id: \.self) { url in RecentRow(url: url) }
+                            if store.recent.isEmpty { Text("Deine Videos erscheinen hier nach der ersten Aufnahme.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary).frame(maxWidth: .infinity,alignment: .leading).padding(8) }
+                        }
+                    }
+                }.padding(.bottom,8)
+            }.padding(.top,22)
+            .frame(maxHeight: .infinity,alignment: .top)
             Rectangle().fill(StudioTheme.hairline).frame(height: 1).padding(.vertical,10)
             HStack(spacing: 8) {
                 Button { store.showShareSettings = true } label: {
@@ -155,6 +176,27 @@ private struct Sidebar: View {
             }
         }.padding(.horizontal,12).padding(.bottom,12).background(StudioTheme.sidebar)
         .sheet(isPresented: $meetings.showSettings) { SettingsSheet(meetings: meetings).environmentObject(store) }
+        .textPrompt("Neuer Ordner",message: "Liegt als normaler Ordner in ~/Movies/Rekord.",isPresented: $creating,text: $newName,confirm: "Anlegen") {
+            if let folder = store.createFolder(newName) { store.showLibrary(folder: folder.lastPathComponent) }
+        }
+        .textPrompt("Ordner umbenennen",isPresented: Binding(get: { renaming != nil },set: { if !$0 { renaming = nil } }),text: $newName,confirm: "Umbenennen") {
+            if let folder = renaming { store.renameFolder(folder,to: newName) }
+        }
+        .confirmationDialog("Ordner „\(dissolving?.lastPathComponent ?? "")“ auflösen?",isPresented: Binding(get: { dissolving != nil },set: { if !$0 { dissolving = nil } }),titleVisibility: .visible) {
+            Button("Auflösen") { if let folder = dissolving { store.dissolveFolder(folder) } }
+        } message: { Text("Die Aufnahmen darin bleiben erhalten und stehen danach wieder unter „Aufnahmen“.") }
+    }
+    @State private var creating = false
+    @State private var renaming: URL?
+    @State private var dissolving: URL?
+    @State private var newName = ""
+    private func sectionHeader(_ title: String,icon: String,help: String,action: @escaping () -> Void) -> some View {
+        HStack {
+            Text(title).eyebrow()
+            Spacer()
+            Button(action: action) { Image(systemName: icon).font(.system(size: 11,weight: .semibold)).frame(width: 18,height: 18).contentShape(Rectangle()) }
+                .buttonStyle(.plain).foregroundStyle(StudioTheme.textTertiary).help(help).accessibilityLabel(help).disabled(store.busy)
+        }.padding(.horizontal,8)
     }
     private func nav(_ title: String,icon: String,selected: Bool,count: Int?,action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -190,8 +232,59 @@ private struct RecentRow: View {
             }.padding(.horizontal,8).padding(.vertical,6)
         }.buttonStyle(.plain).listRow(selected: open && store.workspace == .edit).disabled(store.busy)
         .task(id: url) { title = RecordingInfo.title(url); if let project = try? Project.load(from: url) { title = RecordingInfo.displayTitle(project,url) } }
-        .contextMenu { Button("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
+        .contextMenu {
+            Button("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            Button("Aus „Zuletzt“ entfernen") { store.removeFromRecent(url) }
+        }
     }
+}
+
+/// A user folder in the sidebar: opens the folder view, accepts dragged recordings.
+private struct FolderRow: View {
+    @EnvironmentObject var store: EditorStore
+    let folder: URL
+    let count: Int
+    let rename: () -> Void
+    let dissolve: () -> Void
+    var body: some View {
+        let name = folder.lastPathComponent
+        let selected = store.workspace == .record && store.folderFilter == name
+        Button { store.showLibrary(folder: name) } label: {
+            HStack(spacing: 9) {
+                Image(systemName: selected ? "folder.fill" : "folder").font(.system(size: 12)).foregroundStyle(selected ? StudioTheme.accent : StudioTheme.textTertiary).frame(width: 18)
+                Text(name).font(.system(size: 12.5,weight: selected ? .semibold : .medium)).foregroundStyle(selected ? StudioTheme.text : StudioTheme.textSecondary).lineLimit(1)
+                Spacer(minLength: 4)
+                if count > 0 { Text("\(count)").font(StudioFont.shortcut).foregroundStyle(StudioTheme.textTertiary).monospacedDigit() }
+            }.padding(.horizontal,8).frame(height: 30)
+        }.buttonStyle(.plain).listRow(selected: selected).disabled(store.busy)
+        .libraryDrop(store: store,folder: name)
+        .contextMenu {
+            Button("Umbenennen …",action: rename)
+            Button("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
+            Divider()
+            Button("Ordner auflösen …",action: dissolve)
+        }
+        .accessibilityLabel("Ordner \(name), \(count) Aufnahmen")
+    }
+}
+
+/// Drop target for recordings dragged from the library (or from Finder): moves them into `folder` (nil = no folder).
+private struct LibraryDrop: ViewModifier {
+    let store: EditorStore
+    let folder: String?
+    @State private var targeted = false
+    func body(content: Content) -> some View {
+        content
+            .overlay(RoundedRectangle(cornerRadius: StudioTheme.radiusSmall+1,style: .continuous).strokeBorder(StudioTheme.accent,lineWidth: 1.5).opacity(targeted ? 1 : 0))
+            .dropDestination(for: URL.self) { urls,_ in
+                let projects = urls.filter(ProjectFolder.isProject)
+                guard !projects.isEmpty, !store.busy else { return false }
+                store.move(projects,toFolder: folder); return true
+            } isTargeted: { targeted = $0 }
+    }
+}
+extension View {
+    fileprivate func libraryDrop(store: EditorStore,folder: String?) -> some View { modifier(LibraryDrop(store: store,folder: folder)) }
 }
 
 /// Title and date of a recording folder without loading the whole project.

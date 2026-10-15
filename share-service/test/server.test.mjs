@@ -204,21 +204,21 @@ test('guide upload → mobile page with escaped steps, images, brief, CTA → re
   try {
     const video = await (await upload(f)).json();
     const jpeg = Buffer.concat([Buffer.from([0xff,0xd8,0xff,0xe0]),randomBytes(300)]);
-    const guide = { title:'Rechnung <anlegen>',summary:'So geht es.',apps:['Safari'],videoId:video.id,cta:true,
+    const guide = { title:'Rechnung <anlegen>',summary:'So geht es.',apps:['Safari'],cta:true,
       steps:[{ text:'Klicke auf „Neue Rechnung“.',note:'Tipp <b>',image:jpeg.toString('base64') },{ text:'Fülle das Feld „Kunde“ aus.' }],
       brief:{ summary:'Zwei Schritte lassen sich automatisieren.',saving:'Spart etwa 3 Stunden pro Monat.',groups:[{ title:'Rechnung anlegen',automatable:'ja',method:'api',steps:[1,2] }] } };
     const post = body => fetch(`${f.base}/api/guides`,{ method:'POST',headers:{ authorization:`Bearer ${token}`,'content-type':'application/json' },body:JSON.stringify(body) });
     assert.equal((await fetch(`${f.base}/api/guides`,{ method:'POST',headers:{ 'content-type':'application/json' },body:'{}' })).status,401);
     assert.equal((await post({ ...guide,steps:[{ text:'x',image:Buffer.from('nojpeg').toString('base64') }] })).status,415);
     assert.equal((await post({ ...guide,steps:[] })).status,400);
-    assert.equal((await post({ ...guide,videoId:'A'.repeat(32) })).status,400);
+    assert.equal((await post({ ...guide,videoId:'A'.repeat(32) })).status,409);
     const response = await post(guide); assert.equal(response.status,201);
     const result = await response.json(); assert.equal(result.url,`${f.base}/g/${result.id}`);
     const page = await (await fetch(result.url)).text();
     assert.match(page,/Rechnung &lt;anlegen&gt;/); assert.match(page,/Tipp &lt;b&gt;/); assert.doesNotMatch(page,/<anlegen>/);
     assert.match(page,/width=device-width/); assert.match(page,new RegExp(`/gi/${result.id}/1.jpg`)); assert.doesNotMatch(page,/\/2\.jpg/);
     assert.match(page,/Was sich davon automatisieren lässt/); assert.match(page,/Spart etwa 3 Stunden/); assert.match(page,/href="https:\/\/example.com\/check"/);
-    assert.match(page,new RegExp(`/media/${video.id}`));
+    assert.doesNotMatch(page,/<video|\/media\//);
     const image = await fetch(`${f.base}/gi/${result.id}/1.jpg`); assert.equal(image.headers.get('content-type'),'image/jpeg'); assert.deepEqual(Buffer.from(await image.arrayBuffer()),jpeg);
     assert.equal((await fetch(`${f.base}/gi/${result.id}/2.jpg`)).status,404);
     assert.equal((await fetch(`${f.base}/assets/guide.css`)).status,200);
@@ -239,7 +239,8 @@ test('expiring links: set on upload, kept forever via PATCH, expired links free 
   const auth = { authorization:`Bearer ${token}` };
   const status = async () => (await (await fetch(`${f.base}/api/status`,{ headers:auth })).json());
   try {
-    assert.deepEqual((await status()).features,['expiry']);
+    assert.ok((await status()).features.includes('expiry'));
+    assert.ok((await status()).features.includes('guide-lifecycle-v2'));
     assert.equal((await upload(f,makeMovie(),{ 'x-focus-expires-days':'0' })).status,400);
     assert.equal((await upload(f,makeMovie(),{ 'x-focus-expires-days':'abc' })).status,400);
     const free = (await status()).availableBytes;

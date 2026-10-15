@@ -1,0 +1,150 @@
+{
+  "checkins": [
+    {
+      "answer": "Ich  schreibe  einen  Kundenbericht  aus  den  erledigten  Aufgaben.  Vor  dem  Senden  prüft  ein  Mensch  den  Entwurf.",
+      "answeredBy": "voice",
+      "blockID": "b-2026-10-14T09-21-30Z",
+      "id": "2E6A559D-1F33-4F0F-9E39-9E80AEC92982",
+      "question": "Woran arbeitest du und warum?",
+      "time": "2026-10-15T11:43:33Z"
+    }
+  ],
+  "examples": [
+    {
+      "blockID": "b-2026-10-14T09-21-30Z",
+      "start": "2026-10-14T09:21:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    },
+    {
+      "blockID": "b-2026-10-14T11-34-30Z",
+      "start": "2026-10-14T11:34:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    },
+    {
+      "blockID": "b-2026-10-14T12-51-30Z",
+      "start": "2026-10-14T12:51:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    },
+    {
+      "blockID": "b-2026-10-14T13-22-30Z",
+      "start": "2026-10-14T13:22:30Z",
+      "text": "Projektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht senden. Kontakt: [E-Mail]. IBAN [IBAN].\nProjektstatus aus Aufgabenliste zusammenfassen. Erledigt: CRM Import. Offen: Freigabe der Feldzuordnung. Nächster Schritt: Testimport am Freitag. Sachlichen Kundenbericht als E-Mail-Entwurf speichern, nicht sende",
+      "title": "Kunden-Update-Mail"
+    }
+  ],
+  "guides": [],
+  "handover": {
+    "accessPlaceholders": [
+      "{{AUFGABENLISTE_ZUGANG}}: Lesezugang zur Aufgabenliste mit den erledigten Aufgaben. Tool und API-Zugang sind unklar, apiStatus: prüfen.",
+      "{{MAIL_POSTFACH_ZUGANG}}: Zugang zum Postfach mit Recht zum Speichern von Entwürfen. Kein Senderecht erforderlich. Mail-Client bzw. Postfach unklar.",
+      "{{KUNDE_EMPFAENGER}}: Empfängeradresse des Kunden für den Entwurf. Quelle unklar."
+    ],
+    "effort": "S",
+    "examples": [
+      "b-2026-10-14T09-21-30Z",
+      "b-2026-10-14T11-34-30Z",
+      "b-2026-10-14T12-51-30Z",
+      "b-2026-10-14T13-22-30Z"
+    ],
+    "exceptions": [
+      "Aufgabenliste ist nicht erreichbar oder der Zugang fehlt: abbrechen, keinen Entwurf erstellen und einen Menschen informieren.",
+      "Keine erledigten Aufgaben im relevanten Zeitraum: keinen inhaltsleeren Bericht erstellen, sondern zur Klärung an einen Menschen übergeben. Der Zeitraum ist noch unklar.",
+      "Empfänger oder Kunde ist nicht eindeutig zuordenbar: Entwurf ohne Empfänger speichern oder Rückfrage stellen. Niemals raten.",
+      "Speichern des Entwurfs schlägt fehl: abbrechen und melden. Unter keinen Umständen ersatzweise senden.",
+      "Jede Aktion, die einen Versand auslösen würde, ist untersagt. Der Versand gehört nicht zum Prozess."
+    ],
+    "goal": "Den Kunden über den Projektstand informieren. Dazu wird aus den erledigten Aufgaben der Aufgabenliste ein sachlicher Kundenbericht erstellt und als E-Mail-Entwurf gespeichert, nicht gesendet. Vor dem Versand prüft ein Mensch den Entwurf.",
+    "guides": [],
+    "humanReview": [
+      "Ein Mensch prüft jeden gespeicherten Entwurf vor dem Versand ausdrücklich auf Inhalt, Vollständigkeit und Ton.",
+      "Der Versand erfolgt ausschließlich manuell durch den Menschen nach der Freigabe. Die Automatisierung sendet nie.",
+      "Fälle aus den Ausnahmen, etwa keine erledigten Aufgaben, unklarer Empfänger oder Zugriffsfehler, werden an einen Menschen zur Entscheidung übergeben."
+    ],
+    "method": "claudeCode",
+    "openQuestions": [
+      "In welchem Tool liegt die Aufgabenliste, und gibt es einen API-Zugang? (apiStatus: prüfen)",
+      "Welcher Mail-Client bzw. welches Postfach wird für Entwürfe genutzt?",
+      "Welcher Zeitraum bzw. welche Aufgaben fließen in den Bericht ein?",
+      "Was löst den Prozess aus? Er wurde mehrfach täglich beobachtet, ein fester Auslöser ist unklar.",
+      "Wie wird der Empfänger bzw. Kunde je Projekt ermittelt?",
+      "Gibt es eine Vorlage oder feste Gliederung für den Kundenbericht? Es wurden keine Anleitungen geliefert."
+    ],
+    "steps": [
+      "1. Über {{AUFGABENLISTE_ZUGANG}} die Aufgabenliste lesen und die erledigten Aufgaben im relevanten Zeitraum ermitteln. Der Zeitraum ist unklar.",
+      "2. Projektstatus aus der Aufgabenliste zusammenfassen.",
+      "3. Sachlichen Kundenbericht zum Projektstand formulieren.",
+      "4. Bericht über {{MAIL_POSTFACH_ZUGANG}} als E-Mail-Entwurf speichern, ggf. mit {{KUNDE_EMPFAENGER}}. Nicht senden.",
+      "5. Entwurf zur menschlichen Prüfung bereitstellen. Die Prüfung und der anschließende Versand durch den Menschen liegen außerhalb der Automatisierung."
+    ],
+    "successCriteria": [
+      "Testfall 1: Nach dem Lauf liegt genau ein neuer E-Mail-Entwurf im Entwurfsordner, und im Gesendet-Ordner ist keine neue Nachricht vorhanden.",
+      "Testfall 2: Eine Aufgabenliste mit drei erledigten und zwei offenen Aufgaben wird verarbeitet. Der Bericht nennt alle drei erledigten Aufgaben und stellt keine offene Aufgabe als erledigt dar.",
+      "Testfall 3: Der Bericht ist sachlich formuliert, ohne werbliche oder umgangssprachliche Formulierungen. Ein Mensch bestätigt dies bei der Prüfung.",
+      "Testfall 4: Die Aufgabenliste ist nicht erreichbar. Es wird kein Entwurf erstellt und nichts gesendet, eine Fehlermeldung an einen Menschen liegt vor.",
+      "Testfall 5: Es gibt keine erledigten Aufgaben. Es wird kein Bericht versendet, und der Fall wird zur Klärung an einen Menschen übergeben.",
+      "Testfall 6: Ein Versand erfolgt erst, nachdem ein Mensch den Entwurf geprüft und manuell gesendet hat."
+    ],
+    "systems": [
+      "Mail (konkreter Client bzw. Postfach unklar)",
+      "Aufgabenliste (Tool unklar)"
+    ],
+    "tools": [
+      "claudeCode",
+      "Mail (Entwurf speichern; Zugriffsweg unklar, apiStatus: prüfen)"
+    ],
+    "trigger": "Unklar (mehrfach täglich beobachtet)"
+  },
+  "handover_directory": "/private/tmp/rekord-inventur-replay3/Inventur/Prozesse/p-221ac741-2a52-43df-afb9-1d0e6420bdda",
+  "process": {
+    "apiStatus": "prüfen",
+    "apps": [
+      "Mail"
+    ],
+    "automatable": "ja",
+    "description": "Projektstatus aus der Aufgabenliste zusammenfassen und einen sachlichen Kundenbericht als E-Mail-Entwurf speichern; der Versand erfolgt erst nach menschlicher Prüfung und gehört nicht zum Prozess.",
+    "effort": "S",
+    "euroPerMonth": 866.6666666666666,
+    "examples": [
+      "b-2026-10-14T09-21-30Z",
+      "b-2026-10-14T11-34-30Z",
+      "b-2026-10-14T12-51-30Z",
+      "b-2026-10-14T13-22-30Z"
+    ],
+    "id": "p-221ac741-2a52-43df-afb9-1d0e6420bdda",
+    "inputs": [
+      "Aufgabenliste mit erledigten Aufgaben"
+    ],
+    "method": "claudeCode",
+    "minutesPerWeek": 240,
+    "name": "Kunden-Update-Mail als Entwurf erstellen",
+    "occurrences": [
+      "b-2026-10-14T09-21-30Z",
+      "b-2026-10-14T11-34-30Z",
+      "b-2026-10-14T12-51-30Z",
+      "b-2026-10-14T13-22-30Z"
+    ],
+    "openQuestions": [
+      "In welchem Tool liegt die Aufgabenliste, und gibt es einen API-Zugang?",
+      "Welcher Mail-Client bzw. welches Postfach wird für Entwürfe genutzt?",
+      "Welcher Zeitraum bzw. welche Aufgaben fließen in den Bericht ein?"
+    ],
+    "outputs": [
+      "Gespeicherter E-Mail-Entwurf mit Kundenbericht zum Projektstand"
+    ],
+    "steps": [
+      "Projektstatus aus Aufgabenliste zusammenfassen",
+      "Sachlichen Kundenbericht formulieren",
+      "Bericht als E-Mail-Entwurf speichern, nicht senden"
+    ],
+    "successCriteria": [
+      "E-Mail-Entwurf liegt im Entwurfsordner und wurde nicht versendet",
+      "Bericht enthält alle erledigten Aufgaben aus der Aufgabenliste",
+      "Ton ist sachlich"
+    ],
+    "timesPerWeek": 20,
+    "trigger": "Unklar (mehrfach täglich beobachtet)"
+  }
+}

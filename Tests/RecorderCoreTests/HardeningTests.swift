@@ -205,3 +205,53 @@ func testLoomBitRateCap(in root: URL) async throws {
     precondition(MovieExporter.loomBitRate == 6_000_000)
     print(String(format: "PASS: bit-rate cap honoured (%.1f vs %.1f Mbit/s), Loom ceiling 6 Mbit/s",cappedRate/1e6,normalRate/1e6))
 }
+
+/// Library: user folders next to the takes, moves keep projects openable, reserved and hidden folders stay out,
+/// dissolving a folder brings its takes back, temporary paths are recognised.
+func testLibrary() throws {
+    let files = FileManager.default
+    let root = files.temporaryDirectory.appendingPathComponent("rekord-library-\(UUID().uuidString)")
+    defer { try? files.removeItem(at: root) }
+    try files.createDirectory(at: root,withIntermediateDirectories: true)
+    func take(_ name: String,in folder: URL) throws -> URL {
+        let dir = folder.appendingPathComponent("\(name).rekord")
+        try files.createDirectory(at: dir,withIntermediateDirectories: true)
+        try Project(name: name,duration: 2,width: 100,height: 100).save(to: dir)
+        try Data(count: 16).write(to: dir.appendingPathComponent("screen.mov"))
+        return dir
+    }
+    let a = try take("a",in: root), b = try take("b",in: root)
+    for reserved in ["Meetings","Anleitungen","Inventur",".focus-export"] { try files.createDirectory(at: root.appendingPathComponent(reserved),withIntermediateDirectories: true) }
+    _ = try take("meeting-artig",in: root.appendingPathComponent("Meetings"))
+    let kunden = try Library.createFolder("  Kunden ",in: root)
+    precondition(kunden.lastPathComponent == "Kunden","Name is trimmed")
+    for bad in ["","Kunden","kunden","meetings","a/b",".x","x.rekord"] {
+        precondition((try? Library.createFolder(bad,in: root)) == nil,"Folder name must be refused: '\(bad)'")
+    }
+    precondition(Library.folders(in: root).map(\.lastPathComponent) == ["Kunden"],"Only user folders: \(Library.folders(in: root).map(\.lastPathComponent))")
+    let moved = try Library.move(a,to: kunden)
+    precondition(!files.fileExists(atPath: a.path) && Library.folder(of: moved,root: root) == "Kunden")
+    _ = try Project.load(from: moved)
+    precondition(Set(Library.projects(in: root).map(\.lastPathComponent)) == ["a.rekord","b.rekord"],"Projects in root and folders, none from Meetings")
+    precondition(Set(Storage.scan(root).map(\.url.lastPathComponent)) == ["a.rekord","b.rekord"],"Storage sees folders too")
+    // Same name in the target folder gets a number instead of overwriting.
+    let clash = try take("a",in: root)
+    let numbered = try Library.move(clash,to: kunden)
+    precondition(numbered.lastPathComponent == "a 2.rekord","Clash: \(numbered.lastPathComponent)")
+    // A take that is still being recorded stays put.
+    try Data("{}".utf8).write(to: b.appendingPathComponent(RecoveryJournal.journalName))
+    precondition((try? Library.move(b,to: kunden)) == nil && (try? Library.trash(b)) == nil,"Recording take must not move")
+    try files.removeItem(at: b.appendingPathComponent(RecoveryJournal.journalName))
+    let renamed = try Library.renameFolder(kunden,to: "Kunden 2026")
+    precondition(Library.projects(directlyIn: renamed).count == 2)
+    let cased = try Library.renameFolder(renamed,to: "KUNDEN 2026")
+    precondition(cased.lastPathComponent == "KUNDEN 2026")
+    let back = try Library.dissolveFolder(cased,into: root)
+    precondition(back.count == 2 && Library.folders(in: root).isEmpty && Library.projects(directlyIn: root).count == 3,"Dissolve brings takes back: \(back.map(\.to.lastPathComponent))")
+    precondition(Library.isTemporary(URL(fileURLWithPath: "/tmp/rd-before/x.rekord")) && Library.isTemporary(root)
+                 && !Library.isTemporary(URL(fileURLWithPath: NSHomeDirectory()+"/Movies/Rekord/x.rekord")),"Temporary paths")
+    // Clean up the Trash copy of the dissolved folder.
+    if let trash = try? files.url(for: .trashDirectory,in: .userDomainMask,appropriateFor: nil,create: false),
+       let copy = try? files.contentsOfDirectory(at: trash,includingPropertiesForKeys: nil).first(where: { $0.lastPathComponent.hasPrefix("KUNDEN 2026") }) { try? files.removeItem(at: copy) }
+    print("PASS: library – user folders (reserved/hidden skipped), move with numbered clash, recording takes stay, rename incl. case, dissolve, temp paths")
+}

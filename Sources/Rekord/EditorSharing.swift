@@ -13,7 +13,7 @@ extension EditorStore {
         shareReceipt = try? JSONDecoder().decode(ShareReceipt.self,from: Data(contentsOf: directory.appendingPathComponent("share.json")))
     }
     /// Shares the open project. `expected` pins the project a command asked for: if anything else is open, nothing is shared.
-    func share(expected: URL? = nil,commandID: String? = nil) {
+    func share(expected: URL? = nil,commandID: String? = nil,forOffer: Bool = false) {
         guard phase == .idle,let project,let directory else { return }
         if let expected, ExportTarget.canonical(expected).path != ExportTarget.canonical(directory).path {
             reportCommand(id: commandID,action: "share",error: "Falsches Projekt geöffnet, Freigabe abgebrochen."); return
@@ -24,6 +24,7 @@ extension EditorStore {
             defer { phase = .idle; shareTask = nil }
             do {
                 let client = try shareClient(), limits = try await client.status()
+                if forOffer && !limits.supportsOffers { throw ShareError.message("Server unterstützt Video-Angebote noch nicht. Bitte Share-Server aktualisieren.") }
                 let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
                 let fingerprint = try project.fingerprint()
                 let movie = directory.appendingPathComponent("share.mp4"), marker = directory.appendingPathComponent("share-export.txt")
@@ -48,7 +49,9 @@ extension EditorStore {
                 let video = try await client.upload(file: movie,title: project.name,expiresInDays: Self.shareExpiryDays) { progress in Task { @MainActor in self.exportProgress = progress } }
                 let receipt = ShareReceipt(video: video,server: client.baseURL,projectHash: fingerprint)
                 try encoder.encode(receipt).write(to: directory.appendingPathComponent("share.json"),options: .atomic)
-                shareReceipt = receipt; copyShareLink(); status = "Bereit zum Teilen · Link in die Zwischenablage kopiert"
+                shareReceipt = receipt
+                if forOffer { offerVideo = video; status = "Video bereit · Angebot einrichten" }
+                else { copyShareLink(); status = "Bereit zum Teilen · Link in die Zwischenablage kopiert" }
                 if commandID != nil { reportCommand(id: commandID,action: "share",link: video.url.absoluteString,done: true) }
             } catch is CancellationError { status = "Freigabe abgebrochen · Aufnahme bleibt lokal erhalten"; if commandID != nil { reportCommand(id: commandID,action: "share",error: "Freigabe abgebrochen.") } }
             catch let error as URLError where error.code == .cancelled { status = "Freigabe abgebrochen · Aufnahme bleibt lokal erhalten"; if commandID != nil { reportCommand(id: commandID,action: "share",error: "Freigabe abgebrochen.") } }
@@ -69,12 +72,23 @@ extension EditorStore {
     func openShareLink() { if let url = shareReceipt?.video.url { NSWorkspace.shared.open(url) } }
     func revokeShare() {
         guard phase == .idle,let receipt = shareReceipt,let directory else { return }
-        phase = .uploading; status = "Link wird deaktiviert …"
+        phase = .uploading; status = "Verknüpfte Freigaben werden geprüft …"
         shareTask = Task {
             defer { phase = .idle; shareTask = nil }
             do {
-                try await shareClient(server: receipt.server).revoke(receipt.video.id)
+                let client = try shareClient(server: receipt.server),guides = try await client.guides()
+                let impact = ShareRevocation(videoID: receipt.video.id,guides: guides)
+                var offers: [VideoOffer] = [],after = ""
+                if try await client.status().supportsOffers {
+                    repeat { let page = try await client.offers(after: after); offers += page.offers; if !page.hasMore { break }; guard page.nextCursor > after else { throw ShareError.message("Ungültige Angebotsliste.") }; after = page.nextCursor } while offers.count <= 10000
+                }
+                let alert = NSAlert(); alert.messageText = "Freigaben deaktivieren?"
+                alert.informativeText = impact.description(guides: guides)+"\n\nAußerdem werden \(offers.filter { impact.videoIDs.contains($0.videoId) }.count) Angebotslinks gesperrt und ihre Statistiken gelöscht."
+                alert.addButton(withTitle: "Deaktivieren"); alert.addButton(withTitle: "Abbrechen")
+                guard alert.runModal() == .alertFirstButtonReturn else { status = "Deaktivierung abgebrochen"; return }
+                try await client.revoke(receipt.video.id)
                 try? FileManager.default.removeItem(at: directory.appendingPathComponent("share.json"))
+                await shareActivity.refresh()
                 shareReceipt = nil; status = "Freigabelink deaktiviert · Lokales Projekt bleibt erhalten"
             } catch { self.error = error.localizedDescription }
         }

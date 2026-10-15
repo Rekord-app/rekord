@@ -26,13 +26,9 @@ public enum GuideImages {
     /// Sensitive text found by OCR: e-mail addresses, IBANs, phone and card numbers, password dots.
     /// Rects are normalized (origin top-left) and padded a little so no glyph edge stays visible.
     public static func sensitiveRegions(in image: CGImage) throws -> [GuideRedaction] {
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.recognitionLanguages = ["de-DE","en-US"]
-        request.usesLanguageCorrection = false
-        try VNImageRequestHandler(cgImage: image,options: [:]).perform([request])
+        let observations = try TextRecognition.observations(in: image)
         var result: [GuideRedaction] = []
-        for observation in request.results ?? [] {
+        for observation in observations {
             guard let candidate = observation.topCandidates(1).first else { continue }
             let text = candidate.string
             for match in SensitiveText.matches(in: text) {

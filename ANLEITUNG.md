@@ -12,12 +12,9 @@ Was neu ist, steht im [CHANGELOG](CHANGELOG.md). Technische Details findest du i
 
 ### Weg A – App herunterladen (empfohlen)
 
-1. **[Rekord.zip herunterladen](https://github.com/Rekord-app/rekord/releases/latest/download/Rekord.zip).** Das ist immer die neueste Version. Du musst dafür bei GitHub eingeloggt sein; alle Versionen findest du unter [Releases](https://github.com/Rekord-app/rekord/releases).
+1. **[Rekord.zip herunterladen](https://github.com/Rekord-app/rekord/releases/latest/download/Rekord.zip).** Das ist immer die neueste Version. alle Versionen findest du unter [Releases](https://github.com/Rekord-app/rekord/releases).
 2. Die ZIP-Datei doppelklicken und **`Rekord.app` in den Ordner „Programme“ ziehen**.
-3. **Rekord öffnen.** Beim allerersten Mal blockiert macOS die App, weil sie nicht über den Apple-Entwickler-Store signiert ist, sondern mit einem eigenen Zertifikat:
-   - Im Dialog auf **Fertig** klicken.
-   - **Systemeinstellungen → Datenschutz & Sicherheit** öffnen, ganz nach unten scrollen und bei „Rekord wurde blockiert“ auf **Dennoch öffnen** klicken (je nach macOS-Version heißt der Knopf „Trotzdem öffnen“). Mit deinem Mac-Passwort bestätigen.
-   - Alternativ im Terminal: `xattr -dr com.apple.quarantine /Applications/Rekord.app`
+3. **Release-Hinweise lesen.** Die bisherigen Downloads sind lokal signiert; der Launch-Build muss Developer-ID-signiert und notarisiert sein. Bei Sicherheitswarnungen Herkunft und [Release-Status](docs/RELEASE.md) prüfen.
 4. **Freigaben erteilen.** macOS fragt nach **Bildschirmaufnahme**, **Kamera** und **Mikrofon**. Alles erlauben. Nach der Freigabe für die Bildschirmaufnahme die App einmal mit ⌘Q beenden und neu öffnen.
 5. **Optional: mit Claude Code verbinden.** Einmal im Terminal ausführen:
    ```sh
@@ -26,7 +23,7 @@ Was neu ist, steht im [CHANGELOG](CHANGELOG.md). Technische Details findest du i
 
 ### Weg B – aus dem Quellcode bauen (für Entwickler)
 
-1. **Xcode Command Line Tools** installieren, falls noch nicht vorhanden: `xcode-select --install`
+1. **Xcode 26+ mit macOS SDK 26+** installieren und mit `xcode-select` auswählen. Das Build-Skript prüft das SDK.
 2. **Repository klonen.** Lege es außerhalb von iCloud ab, denn iCloud beschädigt die Signatur der App:
    ```sh
    mkdir -p ~/Code && cd ~/Code
@@ -40,7 +37,7 @@ Bitte nur **einen** der beiden Wege nutzen. Zwei Rekord-Apps auf demselben Mac v
 
 ## 2. Updaten
 
-**Weg A (Download):** Rekord beenden (⌘Q), die neue [Rekord.zip](https://github.com/Rekord-app/rekord/releases/latest/download/Rekord.zip) herunterladen, entpacken und `Rekord.app` in „Programme“ ziehen → **Ersetzen**. Fragt macOS wieder, wie beim ersten Mal **Dennoch öffnen**. Freigaben, Einstellungen und Aufnahmen bleiben erhalten, weil jede Version mit demselben Zertifikat signiert ist.
+**Weg A (Download):** Rekord beenden (⌘Q), die neue [Rekord.zip](https://github.com/Rekord-app/rekord/releases/latest/download/Rekord.zip) herunterladen, entpacken und `Rekord.app` in „Programme“ ziehen → **Ersetzen**. Aufnahmen und Einstellungen bleiben erhalten. Beim Wechsel von lokaler Signatur auf Developer ID können Datenschutzfreigaben und Keychain-Zugriff erneut nötig sein.
 
 **Weg B (Quellcode):**
 ```sh
@@ -74,10 +71,10 @@ Die Pille zeigt die Zeit und hat Knöpfe für Pause, Neustart und Verwerfen.
 
 ### Meetings: Calls mitschreiben
 
-Rekord nimmt deine Calls **automatisch** auf. Du musst nichts klicken.
+Rekord nimmt Meetings nach Bestätigung auf. **Automatik ist standardmäßig aus**, auch nach dem Sicherheitsupdate für frühere Installationen. In den Einstellungen lässt sie sich nach einem Hinweis ausdrücklich aktivieren. Aufnahme benötigt macOS 14.2+, lokale Transkription macOS 26+. Ohne Claude-Schlüssel wird keine Zusammenfassung gesendet; lokale Audiodateien und verfügbare Transkripte bleiben nutzbar.
 
-1. Starte ein Google Meet, Zoom, Teams, FaceTime oder einen Anruf vom iPhone über den Mac. Nach etwa 6 Sekunden beginnt die Aufnahme. Oben rechts zeigt ein kleiner Controller App, Zeit und Pegel.
-2. Hol dir wie immer im Gespräch das Okay für die Aufnahme.
+1. Wenn du die Automatik aktiviert hast: Starte ein Google Meet, Zoom, Teams, FaceTime oder einen Anruf vom iPhone über den Mac. Nach etwa 6 Sekunden beginnt die Aufnahme. Oben rechts zeigt ein kleiner Controller App, Zeit und Pegel.
+2. Informiere die Beteiligten und kläre ihre Zustimmung vor der Aufnahme. Die Bestätigung in Rekord beweist diese Zustimmung nicht.
 3. Leg auf. Rekord stoppt von selbst. Nach wenigen Sekunden meldet sich „Transkript fertig“, ein Klick öffnet Transkript, Zusammenfassung und Follow-up-Entwurf.
 
 Von Hand: **⌃⌥⌘M** startet und stoppt. Der Papierkorb im Controller verwirft eine Aufnahme, die du nicht willst.
@@ -85,7 +82,7 @@ Von Hand: **⌃⌥⌘M** startet und stoppt. Der Papierkorb im Controller verwir
 Einmalig einrichten:
 - **Einstellungen (Zahnrad in der Seitenleiste oder im Meeting-Bereich):** Claude-API-Schlüssel, dein Name, Begriffe, die oft fallen (z. B. Produktnamen). Dort schaltest du auch die Automatik und den Start beim Anmelden ab.
 - **Erste Aufnahme:** macOS fragt nach „Systemaudio aufnehmen“ und nach Mitteilungen. Beides erlauben, sonst bleibt die Spur der Gegenseite stumm und die Meldung kommt nicht.
-- **Rekord muss laufen**, damit die Automatik greift. Deshalb startet Rekord beim Anmelden mit. Das Fenster darfst du schließen.
+- **Rekord muss laufen**, damit die Automatik greift. Den Start beim Anmelden aktivierst du bei Bedarf in den Einstellungen. Das Fenster darfst du schließen.
 
 Tipps:
 - **Kopfhörer** geben das sauberste Transkript. Über Lautsprecher geht es auch, Rekord filtert das Echo heraus.
@@ -110,6 +107,7 @@ Gut zu wissen:
 - E-Mail-Adressen, IBANs, Telefonnummern und Passwörter werden in den Bildern automatisch geschwärzt. Vor dem Teilen trotzdem einmal durchscrollen.
 - Getippte Inhalte speichert Rekord nie. In der Anleitung steht nur „Trage die Kundennummer ein“.
 - An Claude geht nur Text, keine Bilder.
+- Geteilte Anleitungen enthalten Texte, aktuelle geschwärzte Schritt-Bilder und optional den Brief; Rohvideo und Audio bleiben lokal. Alte Links ändern sich nicht durch lokale Bearbeitung. Unter ⋯ → **Freigaben deaktivieren** oder in der Freigabeverwaltung sperrst du alle verbundenen Versionen und alte Videos. Der Server muss vorher aktualisiert werden.
 
 ## 4. Bearbeiten (Studio)
 
@@ -132,6 +130,7 @@ Nach dem Stoppen öffnet sich der Editor. Alles wird automatisch gespeichert, **
 ## 5. Exportieren und Teilen
 
 - **Exportieren:** MP4 in 1080p oder 4K, 30 oder 60 fps. Der Export läuft im Hintergrund, du kannst währenddessen weiterarbeiten.
+- **Video-Angebot:** Im Teilen-Menü **Als Video-Angebot teilen** wählen, Empfängerbeschriftung und Buchungslink eintragen. Unter **Video-Angebote** findest du Auswertung, Bearbeitung und Widerruf. Statistik gibt es nur nach Zuschauer-Zustimmung; macOS-Mitteilungen bei laufender App. [Vollständige Anleitung und Messgrenzen](docs/VIDEO-ANGEBOTE.md).
 - **Link teilen:** lädt das fertige Video auf den Share-Server und kopiert den Link. Jeder mit dem Link kann das Video ansehen. Im Export-Tab kannst du unter **Freigaben verwalten** Links wieder deaktivieren.
 
 - **Ablaufdatum:** Neue Video-Links laufen nach 90 Tagen ab (ändern unter Einstellungen → Teilen). Willst du einen Link dauerhaft, klick unter **Freigaben verwalten** auf **Behalten**.
@@ -160,7 +159,7 @@ Die Liste aller Werkzeuge steht in [docs/MCP.md](docs/MCP.md). Nach einem Update
 | Kamera oder Mikrofon fehlt | Gleicher Ort, unter **Kamera** bzw. **Mikrofon**. |
 | Schlüsselbund-Dialog beim Teilen | Mac-Passwort eingeben und **Immer erlauben** klicken. Nach einem Update kommt das einmal wieder. |
 | „Rekord kann nicht geöffnet werden“ / „wurde blockiert“ | Systemeinstellungen → Datenschutz & Sicherheit → ganz unten **Dennoch öffnen**. Oder: `xattr -dr com.apple.quarantine /Applications/Rekord.app` |
-| `install.sh`: „Swift fehlt“ | `xcode-select --install` ausführen und danach das Skript erneut starten. |
+| `install.sh`: „Swift fehlt“ | Xcode 26+ / macOS SDK 26+ installieren, mit `xcode-select` auswählen und erneut starten. |
 | `update.sh`: „Not possible to fast-forward“ | Du hast lokale Änderungen. Sichern oder verwerfen (`git status`), dann erneut versuchen. |
 | Nach dem Update auf Rekord fehlen Freigaben | Einmal Bildschirmaufnahme in den Systemeinstellungen prüfen: Der Eintrag heißt jetzt „Rekord“. |
 | Meeting: Spur „Gegenüber“ bleibt stumm | Systemeinstellungen → Datenschutz & Sicherheit → Bildschirm- & Systemaudioaufnahme → unten **Nur Systemaudio** → Rekord an. |
@@ -169,3 +168,16 @@ Die Liste aller Werkzeuge steht in [docs/MCP.md](docs/MCP.md). Nach einem Update
 | App startet nach dem Update nicht | Weg A: Rekord.zip neu laden und ersetzen. Weg B: `./scripts/install.sh`. Es darf nur eine Rekord.app geben. |
 
 Aufnahmen liegen als `.rekord`-Ordner unter `~/Movies/Rekord`. Ältere Aufnahmen (`.focusrec`, Ordner „Focus Recorder“) zieht die App beim ersten Start automatisch dorthin um und öffnet sie weiter. Aufnahmen werden nie in Git eingecheckt.
+
+## Inventur: Was mache ich eigentlich den ganzen Tag?
+
+1. Öffne **Inventur** in der Seitenleiste. Unter **Einstellungen** prüfst du ausgeschlossene Apps, Rückfragen (Standard acht), Aufbewahrung, Tagesbudget und Stundensatz. Den Claude-Schlüssel findest du in den allgemeinen Rekord-Einstellungen. Für brauchbaren Kontext braucht Rekord **Bedienungshilfen** und **Bildschirmaufnahme** unter Datenschutz & Sicherheit.
+2. **Inventur starten**. Rekord sammelt lokal alle fünf Sekunden Kontext. Die Menüleiste bietet jederzeit Pause für 15 Minuten, eine Stunde oder bis morgen. Ohne Bedienungshilfen gibt es nur App-Namen.
+3. Gelegentlich erscheint eine kurze Rückfrage: **Sprechen** → **Fertig**, alternativ **Tippen**, **Später** oder **Heute nicht mehr**. Sprache wird lokal transkribiert (macOS 26), höchstens 60 Sekunden. Während Calls/Aufnahmen erscheinen keine Fragen.
+4. Unter **Tag** erscheinen nach der Auswertung Arbeitsblöcke. **Ansehen** zeigt lokale Bilder und Antworten. **Löschen** entfernt den Block samt zugehörigem Rohmaterial.
+5. **Jetzt auswerten** erstellt die Prozess-Liste. Sonst läuft sie abends (Standard 18:30). Reihenfolge nach Euro-Arbeitswert pro Monat: Das ist eine Hochrechnung aus beobachteten Arbeitstagen, keine versprochene Ersparnis.
+6. Öffne einen Prozess, prüfe Schritte, offene Fragen und Automatisierbarkeit. **Kein Prozess** merkt sich die Ablehnung. **Als Anleitung aufnehmen** startet eine bewusste Vormach-Aufnahme mit dem Prozessnamen.
+7. **An Claude Code übergeben** erstellt das Übergabe-Paket und kopiert den Auftrag. In Claude Code einfügen; `rekord`-MCP liefert Kontext und Beispiele. Entwürfe bleiben inaktiv, Zugangsdaten Platzhalter. Der Workspace-Skill `prozess-automatisieren` ergänzt zehn Eval-Läufe.
+8. **Für ein Team nutzen** verlangt deine eigene Zustimmung beim Start. Prüfe und ändere Name, Beschreibung und Schritte jedes Prozesses, hake die gewünschten Prozesse ab und exportiere **Prozess-Liste für mein Unternehmen**. Du erhältst lokale JSON-/Markdown-Dateien, keinen automatischen Upload.
+
+Details zu Daten, Grenzen der Maskierung und Vorlage für Mitarbeiter: [Inventur-Datenschutz](docs/inventur-datenschutz.md). Lass die Inventur zuerst einen kontrollierten Tag laufen und bewerte die Prozess-Liste, bevor du dich auf Kennzahlen verlässt.

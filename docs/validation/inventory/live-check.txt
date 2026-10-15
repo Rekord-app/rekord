@@ -1,0 +1,1 @@
+BLOCKED Bedienungshilfen=false, gesperrt=false. Kein Fenster erfasst. OS #211: Recht freigeben und kontrollierten Lauf wiederholen.

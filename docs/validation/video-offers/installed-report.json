@@ -1,0 +1,32 @@
+{
+  "pass": true,
+  "version": "1.9.0",
+  "build": 11,
+  "installedAt": "~/Applications/Rekord.app",
+  "signatureVerified": true,
+  "processPathVerified": true,
+  "ui": {
+    "offerCreated": true,
+    "elapsedSeconds": 8.907,
+    "existingVideo": true,
+    "recipientLabel": true,
+    "bookingURL": true,
+    "notificationPermissionUnchanged": true,
+    "offerVisibleInNativeAnalytics": true
+  },
+  "cleanup": {
+    "syntheticVideoRevoked": true,
+    "offerPage": 404,
+    "offerMedia": 404
+  },
+  "physicalIPhone": "not tested",
+  "systemBanner": "not tested: permission not granted",
+  "subsequentParallelUpdate": {
+    "version": "1.10.0",
+    "build": 12,
+    "scope": "library update in separate task",
+    "offerCodeUnchanged": true,
+    "signatureVerified": true,
+    "nativeOfferManagementOpened": true
+  }
+}

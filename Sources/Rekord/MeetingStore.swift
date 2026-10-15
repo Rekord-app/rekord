@@ -27,9 +27,7 @@ import RecorderCore
     }
     @Published var hasAPIKey = false
     /// Record calls automatically when a meeting app starts using the microphone (no bot joins the call).
-    @Published var autoRecord = UserDefaults.standard.object(forKey: "meetingAutoRecord") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(autoRecord,forKey: "meetingAutoRecord"); updateDetector() }
-    }
+    @Published private(set) var autoRecord = false
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     /// App of the running call when it was picked up automatically.
     @Published var callApp: String?
@@ -50,9 +48,31 @@ import RecorderCore
 
     init(root: URL = MeetingsFolder.url,detect: Bool = false) {
         self.root = root
+        MeetingRecordingPolicy.migrate(.standard)
+        autoRecord = MeetingRecordingPolicy.enabled(.standard)
         reload()
         hasAPIKey = ClaudeKeychain.hasKey
         if detect { updateDetector() }
+    }
+    func explainMigrationIfNeeded() {
+        guard phase == .idle,canStart(),!CommandLine.arguments.contains("--exit-after-diagnostics"),UserDefaults.standard.bool(forKey: "meetingMigrationNoticePending") else { return }
+        UserDefaults.standard.set(false,forKey: "meetingMigrationNoticePending")
+        let alert = NSAlert(); alert.messageText = "Automatische Meeting-Aufnahme ist jetzt aus"
+        alert.informativeText = "Die frühere Einstellung wurde zurückgesetzt, damit kein Call ohne bewusste Aktivierung aufgenommen wird. Du kannst die Automatik in den Einstellungen wieder einschalten. Bestehende Aufnahmen bleiben erhalten."
+        alert.addButton(withTitle: "Verstanden"); alert.runModal()
+    }
+    private func confirmRecording(automatic: Bool) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = automatic ? "Calls automatisch aufnehmen?" : "Meeting aufnehmen?"
+        alert.informativeText = "Rekord nimmt Mikrofon und Systemton auf. Informiere die Beteiligten und kläre ihre Zustimmung vor der Aufnahme. Diese Bestätigung in Rekord ist kein Nachweis ihrer Zustimmung. Ton und Transkript bleiben lokal; eine Claude-Zusammenfassung sendet den Text mit deinem API-Schlüssel an Anthropic." + (automatic ? " Automatische Aufnahmen starten bei erkannten Calls, solange diese Einstellung aktiv ist. Du kannst sie jederzeit hier ausschalten." : "")
+        alert.addButton(withTitle: automatic ? "Automatische Aufnahme aktivieren" : "Aufnahme starten"); alert.addButton(withTitle: "Abbrechen")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+    func setAutoRecord(_ enabled: Bool) {
+        guard phase == .idle else { error = "Diese Einstellung lässt sich nach der laufenden Aufnahme ändern."; return }
+        if enabled && !confirmRecording(automatic: true) { return }
+        MeetingRecordingPolicy.setEnabled(enabled,in: .standard)
+        autoRecord = MeetingRecordingPolicy.enabled(.standard); updateDetector()
     }
     /// Starts or stops automatic call detection according to the setting.
     func updateDetector(testProcessName: String? = nil) {
@@ -87,15 +107,21 @@ import RecorderCore
     func requestStart() { guard phase == .idle else { return }; bringForward?(); start() }
     /// Records microphone and system audio. Title, contact and company are filled from the summary after the call.
     func start(title: String = "",contact: String = "",company: String = "",app: String? = nil,automatic: Bool = false) {
-        guard phase == .idle else { return }
+        guard phase == .idle, canStart() else { return }
+        guard #available(macOS 14.2, *) else { error = "Meeting-Aufnahmen benötigen macOS 14.2 oder neuer. Studio und lokale Dateien bleiben verfügbar."; return }
+        if automatic { guard autoRecord && MeetingRecordingPolicy.enabled(.standard) else { return } }
+        else if !confirmRecording(automatic: false) { return }
         let time = DateFormatter(); time.locale = Locale(identifier: "de_DE"); time.dateFormat = "HH:mm"
-        var meeting = Meeting(title: title.isEmpty ? "\(app ?? "Meeting") \(time.string(from: Date()))" : title,contact: contact,company: company,consent: true,ownName: ownName.isEmpty ? Self.defaultName : ownName)
+        var meeting = Meeting(title: title.isEmpty ? "\(app ?? "Meeting") \(time.string(from: Date()))" : title,contact: contact,company: company,consent: false,ownName: ownName.isEmpty ? Self.defaultName : ownName)
         meeting.app = app
+        meeting.recordingConfirmedAt = automatic ? UserDefaults.standard.object(forKey: "meetingAutoRecordConfirmedAt") as? Date : Date()
+        meeting.recordingConfirmationSource = automatic ? "automatic-opt-in-v2" : "manual-v2"
         autoStarted = automatic; callApp = app
         phase = .starting; onPhaseChange?()
         Task {
             do {
                 let directory = try MeetingsFolder.newDirectory(for: meeting,in: root)
+                self.directory = directory
                 try meeting.save(to: directory)
                 let recorder = MeetingRecorder()
                 try await recorder.start(directory: directory,systemAudio: true,microphoneID: microphoneID())
@@ -173,7 +199,7 @@ import RecorderCore
             guard granted else { return }
             let content = UNMutableNotificationContent(); content.title = title; content.body = body; content.sound = .default
             if let directory { content.userInfo = ["meeting": directory.path] }
-            center.add(UNNotificationRequest(identifier: UUID().uuidString,content: content,trigger: nil))
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString,content: content,trigger: nil))
         }
     }
     /// Transcribe (unless a transcript exists) and summarize; also used to retry after an error.
@@ -183,6 +209,10 @@ import RecorderCore
         let warning = initial.status == .failed ? nil : initial.error
         do {
             var transcript = retranscribe ? nil : try? Transcript.load(from: directory)
+            if transcript == nil && !MeetingTranscriber.available {
+                meeting.status = .done; meeting.error = "Audio gesichert. Lokale Transkription ist auf diesem Mac nicht verfügbar (macOS 26 und unterstützte Hardware erforderlich)."
+                try meeting.save(to: directory); revision += 1; return
+            }
             if transcript == nil {
                 progress = "Transkript wird erstellt …"; meeting.status = .transcribing; try meeting.save(to: directory); revision += 1
                 let made = try await MeetingTranscriber.transcribe(directory: directory,meeting: meeting)
@@ -190,6 +220,11 @@ import RecorderCore
                 meeting.transcribedWith = made.engine
             }
             guard let transcript else { return }
+            guard hasAPIKey else {
+                meeting.status = .done; meeting.error = warning
+                meeting.processingSeconds = (Date().timeIntervalSince(start)*10).rounded()/10
+                try meeting.save(to: directory); revision += 1; return
+            }
             progress = "Zusammenfassung wird erstellt …"; meeting.status = .summarizing; try meeting.save(to: directory); revision += 1
             guard !transcript.sentences.isEmpty else { throw RecorderError.message("Im Ton wurde keine Sprache erkannt. Mikrofon und Systemton prüfen.") }
             let summary = try await MeetingSummarizer.summarize(meeting: meeting,transcript: transcript,apiKey: ClaudeKeychain.read() ?? "",glossary: glossaryTerms)

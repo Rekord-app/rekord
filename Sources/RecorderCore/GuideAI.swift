@@ -142,46 +142,13 @@ public enum GuideAI {
     // MARK: Transport
 
     static func body(system: String,user: String,schema: [String: Any]) throws -> Data {
-        let body: [String: Any] = [
-            "model": model,"max_tokens": 16000,"fallbacks": "default",
-            "output_config": ["effort": "medium","format": ["type": "json_schema","schema": schema]],
-            "system": system,"messages": [["role": "user","content": user]],
-        ]
-        return try JSONSerialization.data(withJSONObject: body,options: [.sortedKeys])
+        try ClaudeRequest(model: model,system: system,user: user,schema: schema).body()
     }
     static func send(_ body: Data,apiKey: String,session: URLSession) async throws -> Data {
-        guard !apiKey.isEmpty else { throw SummaryError.missingKey }
-        var request = URLRequest(url: endpoint,timeoutInterval: 180)
-        request.httpMethod = "POST"
-        request.setValue("application/json",forHTTPHeaderField: "content-type")
-        request.setValue(apiKey,forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01",forHTTPHeaderField: "anthropic-version")
-        request.setValue("server-side-fallback-2026-07-01",forHTTPHeaderField: "anthropic-beta")
-        request.httpBody = body
-        let data: Data, response: URLResponse
-        do { (data,response) = try await session.data(for: request) }
-        catch let error as URLError where [.networkConnectionLost,.timedOut,.cannotConnectToHost,.notConnectedToInternet].contains(error.code) {
-            // One retry: long requests sometimes lose the connection (Wi-Fi change, proxy).
-            try await Task.sleep(nanoseconds: 2_000_000_000)
-            (data,response) = try await session.data(for: request)
-        }
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard status == 200 else {
-            let message = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any]).flatMap { ($0["error"] as? [String: Any])?["message"] as? String }
-            throw SummaryError.http(status,message ?? String(decoding: data.prefix(300),as: UTF8.self))
-        }
-        return data
+        try await ClaudeAPI.send(body,apiKey: apiKey,session: session)
     }
     static func decode<T: Decodable>(_ type: T.Type,from data: Data) throws -> T {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw SummaryError.invalid("kein JSON-Objekt") }
-        switch object["stop_reason"] as? String {
-        case "refusal": throw SummaryError.refused
-        case "max_tokens": throw SummaryError.truncated
-        default: break
-        }
-        let blocks = (object["content"] as? [[String: Any]]) ?? []
-        guard let text = blocks.last(where: { $0["type"] as? String == "text" })?["text"] as? String, !text.isEmpty else { throw SummaryError.empty }
-        do { return try JSONDecoder().decode(T.self,from: Data(text.utf8)) } catch { throw SummaryError.invalid(error.localizedDescription) }
+        try ClaudeAPI.decode(type,from: data)
     }
 }
 

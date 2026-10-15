@@ -49,6 +49,8 @@ struct StorageSettingsSection: View {
             if let usage {
                 LabeledContent("Aufnahmen") { Text("\(Storage.format(usage.recordings))  (Studio \(Storage.format(usage.studio)) · Loom \(Storage.format(usage.loom)))").monospacedDigit() }
                 LabeledContent("Meetings · Anleitungen") { Text("\(Storage.format(usage.meetings)) · \(Storage.format(usage.guides))").monospacedDigit() }
+                LabeledContent("Inventur: Bilder · Proben") { Text("\(Storage.format(usage.inventoryImages)) · \(Storage.format(usage.inventorySamples))") }
+                Button("Inventur-Bilder jetzt löschen",role: .destructive) { store.inventory.deleteImages(); refresh() }
                 LabeledContent("Frei auf dem Mac") { Text(Storage.format(usage.freeOnDisk)).monospacedDigit().foregroundStyle(usage.freeOnDisk < 20_000_000_000 ? StudioTheme.warning : StudioTheme.text) }
             } else { ProgressView().controlSize(.small) }
             Toggle(isOn: Binding(get: { policy.loomTrashDays != nil },set: { policy.loomTrashDays = $0 ? 30 : nil })) {

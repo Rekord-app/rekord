@@ -78,6 +78,9 @@ func XCTAssertNil<T>(_ a: T?) { precondition(a == nil) }
 func XCTAssertThrowsError(_ operation: @autoclosure () throws -> Void) { do { try operation(); preconditionFailure("Expected error") } catch {} }
 @main struct CoreTestRunner {
     static func main() async throws {
+        if let i = CommandLine.arguments.firstIndex(of: "--inventory-benchmark"),CommandLine.arguments.count > i+1 {
+            try await inventoryBenchmark(root: URL(fileURLWithPath: CommandLine.arguments[i+1])); return
+        }
         let tests = ProjectTests()
         try tests.testCutsMapSourceTimeAndSplit()
         tests.testRejectsOverlappingCutsAndInvalidStyle()
@@ -96,8 +99,11 @@ func XCTAssertThrowsError(_ operation: @autoclosure () throws -> Void) { do { tr
         testRenameMigration()
         try testHardening()
         try testStorageCleanup()
+        try testLibrary()
         try testMeetings()
         try testGuides()
+        try testVideoOffers()
+        try await testInventory()
         testGuideSpeechAnchors()
         if let i = CommandLine.arguments.firstIndex(of: "--background-sheet"), CommandLine.arguments.count > i+2 {
             try dumpBackgroundSheet(to: URL(fileURLWithPath: CommandLine.arguments[i+1]),screen: URL(fileURLWithPath: CommandLine.arguments[i+2]))

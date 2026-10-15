@@ -12,25 +12,26 @@ Technische Referenz: Aufbau, Modi im Detail, Speicher, Tests und Struktur. Zurü
 - **Editor:** Filmstreifen-Timeline mit Spuren für Schnitt, Zoom und Kamera, Echtzeit-Preview (identisch mit dem Export), Undo/Redo, „Alle Edits entfernen“.
 - **Export:** MP4 in 1080p oder 4K, 30 oder 60 fps, in einer Export-Queue im Hintergrund. Formate 16:9, 9:16, 1:1, 4:5.
 - **Loom-Modus:** Die Komposition läuft schon während der Aufnahme auf der GPU. Nach dem Stoppen wird hochgeladen, und der Link liegt in der Zwischenablage.
-- **Meeting-Modus (Call-Notizen):** erkennt Calls in Google Meet, Zoom, Teams, FaceTime, Slack und weiteren Apps und nimmt sie automatisch auf, mit eigenem Mikrofon und Gegenseite als getrennten Spuren. Nach dem Call: lokales Transkript und eine deutsche Sales-Zusammenfassung (Interesse 1–5, wörtliche Einwände, nächster Schritt, Follow-up-Entwurf). Details unten.
+- **Meeting-Modus (Call-Notizen):** erkennt Calls in Google Meet, Zoom, Teams, FaceTime, Slack und weiteren Apps und nimmt sie nach ausdrücklich aktiviertem Opt-in automatisch auf, mit eigenem Mikrofon und Gegenseite als getrennten Spuren. Nach dem Call: lokales Transkript und eine deutsche Sales-Zusammenfassung (Interesse 1–5, wörtliche Einwände, nächster Schritt, Follow-up-Entwurf). Details unten.
 - **Anleitungs-Modus:** Ablauf am Bildschirm aufnehmen und dabei erklären. Rekord macht daraus eine Schritt-für-Schritt-Anleitung (ein Schritt pro Klick, Screenshot mit markierter Stelle, kurzer Text), schwärzt E-Mail, IBAN, Telefon und Passwörter, und gibt sie als Web-Seite, PDF, Markdown und `guide.json` aus. Dazu ein Automatisierungs-Brief: welche Schritte sich wie automatisieren lassen und was das an Zeit spart. Details unten.
 - **MCP für Claude Code:** Aufnahmen auflisten, ansehen (`render_frame`), Look, Zooms, Schnitte und Kamera-Layouts bearbeiten, exportieren, teilen und Aufnahmen starten oder stoppen.
 
 ## Aus dem Quellcode bauen
 
-Voraussetzung: macOS 14+ (am schönsten ab macOS 26 mit Liquid Glass) und Swift 5.9+ (Command Line Tools oder Xcode).
+Build: Xcode 26+ und macOS SDK 26+. Laufzeit: Studio ab macOS 14, Meeting-Systemton ab 14.2, lokale Transkription ab 26. Siehe [Voraussetzungen und Kosten](../README.md#voraussetzungen-und-kosten).
 
 ```sh
 ./scripts/install.sh    # bauen, nach ~/Applications installieren, MCP in Claude Code registrieren, starten
 ./scripts/update.sh     # git pull --ff-only, danach install.sh
 ./scripts/build-app.sh  # nur bauen und installieren
-./scripts/release.sh    # Release: baut Rekord.zip und veröffentlicht es als GitHub-Release v<Version>
+./scripts/release.sh --package /tmp/rekord-release-review  # signiert/notarisiert, noch kein Upload
+./scripts/release.sh --publish /tmp/rekord-release-review  # nach Prüfung veröffentlichen
 ```
 
 - Die App liegt immer unter `~/Applications/Rekord.app`. Den Ordner änderst du mit `REKORD_APP_DIR`.
 - Sie liegt bewusst außerhalb von iCloud Documents, weil der File Provider Finder-Metadaten an signierte Bundles hängt und die Signatur damit kaputtmacht.
 - **Signatur:** `scripts/signing-identity.sh` legt beim ersten Build eine selbstsignierte, lokale Signing-Identity an. Sie liegt in einer eigenen Keychain unter `~/Library/Application Support/Rekord/signing`. Dadurch bleiben die macOS-Freigaben (Bildschirm, Kamera, Mikrofon) über Rebuilds hinweg erhalten.
-- Das ist keine Distributions-Signatur. Developer-ID-Signing und Notarisierung wären ein eigener Release-Schritt. `REKORD_SIGNING=adhoc` signiert stattdessen ad hoc pro Build (dann gehen die Freigaben nach Code-Änderungen verloren).
+- Das ist keine Distributions-Signatur. Der Distributionsmodus `REKORD_SIGNING=distribution` verlangt Developer ID. Paketbau verlangt anschließend Notarisierung; siehe [Release-Ablauf](RELEASE.md). `REKORD_SIGNING=adhoc` signiert stattdessen ad hoc pro Build (dann gehen die Freigaben nach Code-Änderungen verloren).
 - Die App umgeht TCC nicht.
 
 ## Claude Code (MCP)
@@ -45,13 +46,13 @@ Im Bundle steckt der MCP-Server `rekord-mcp`. `install.sh` registriert ihn in Cl
 
 Ein Notetaker für Sales-Calls, in der App statt in der Cloud. Er läuft ohne Bot, der dem Meeting beitritt, wie Fathoms Desktop-App.
 
-1. **Automatisch:** Sobald eine Meeting-App das Mikrofon benutzt, startet Rekord nach etwa 6 Sekunden die Aufnahme. Bei Browsern muss zusätzlich ein Fenstertitel ein Meeting zeigen (Google Meet, Teams, Zoom im Web).
+1. **Automatisch (standardmäßig aus):** Nach Aktivierung samt Aufnahmehinweis in den Einstellungen: Sobald eine Meeting-App das Mikrofon benutzt, startet Rekord nach etwa 6 Sekunden die Aufnahme. Bei Browsern muss zusätzlich ein Fenstertitel ein Meeting zeigen (Google Meet, Teams, Zoom im Web).
    - Erkannt werden Zoom, Teams, Slack Huddles, FaceTime und Anrufe vom iPhone, Webex, Discord, WhatsApp und Telegram, dazu Chrome, Safari, Arc, Edge, Brave, Firefox und weitere Browser.
    - Gibt die App das Mikrofon frei, also wenn der Call endet, stoppt Rekord nach rund 6 Sekunden. Danach kommt die Mitteilung „Transkript fertig“; ein Klick öffnet das Meeting.
    - Von Hand geht es auch: Seitenleiste **Meetings** → **Meeting aufnehmen** oder **⌃⌥⌘M** (bewusst nicht ⌘⇧M: das ist in Teams die Stummschaltung und in Zoom das Mini-Fenster).
    - Im schwebenden Controller verwirft der Papierkorb eine Fehlauslösung, und dieser Call wird nicht erneut aufgenommen.
-   - Rekord trägt sich beim ersten Start in die Anmeldeobjekte ein, damit die Erkennung immer läuft. Abschaltbar in den Einstellungen (Zahnrad in der Seitenleiste oder bei Meetings).
-   - Die Einwilligung holst du im Gespräch selbst ein. Gespräche ohne Zustimmung aufzunehmen ist in Deutschland strafbar (§ 201 StGB).
+   - Start beim Anmelden wird bei Bedarf in den Einstellungen aktiviert. Frühere gespeicherte Automatik-Einstellungen werden beim Sicherheitsupdate einmalig deaktiviert; eine bewusste neue Aktivierung ist nötig.
+   - Informiere die Beteiligten und kläre ihre Zustimmung vorher. Die App speichert nur deine Bestätigung des Aufnahmehinweises, keinen Nachweis ihrer Zustimmung.
 2. **Aufnahme:** `microphone.m4a` (deine Stimme) und `system.m4a` (Gegenseite) als getrennte Spuren auf einer Zeitachse.
    - Der Systemton läuft über einen eigenen Core-Audio-Process-Tap (macOS 14.2+, Freigabe „Nur Systemaudio“). Er nimmt alles auf außer Rekord und Musik-Playern (Spotify, Musik, Podcasts, VLC …). Zoom, Meet im Browser, Teams, FaceTime und „Anrufe vom iPhone“ laufen also mit, Hintergrundmusik nicht.
    - Ein schwebender Controller zeigt App, Zeit, beide Pegel, Stopp und Verwerfen.
@@ -82,11 +83,11 @@ Für Unternehmer: einen Ablauf einmal vormachen und erklären („So legen wir e
 5. **Schwärzen lokal:** Apples Texterkennung (Vision) findet E-Mail-Adressen, IBANs, Telefonnummern, Kartennummern (Luhn-Prüfung) und Passwort-Punkte und deckt sie deckend ab. Dazu manuelles Schwärzen im Editor. Gespeichert wird nur das geschwärzte Bild, neu erzeugt aus dem Video.
 6. **Texte:** Lokales Transkript (SpeechTranscriber), Sätze werden dem Klick zugeordnet, bei dem sie fallen. Claude (`claude-sonnet-5-5`, strukturiert) schreibt daraus Titel, Schritt-Texte und Tipps/Warnungen nur aus dem Gesagten, Anrede Du oder Sie. Ohne Claude-Schlüssel stehen Vorlagen-Texte da („Klicke auf die Schaltfläche ‚Speichern‘.“).
 7. **Editor:** Titel, Texte und Tipps bearbeiten, Schritte verschieben, zusammenlegen, löschen, Bereiche schwärzen.
-8. **Ausgabe:** `guide.json` (Schema `rekord.guide`, Version 1; Felder kommen nur dazu, werden nie umbenannt), `guide.md` mit Bildern, PDF, und **Teilen** als mobile Seite auf dem eigenen Share-Server (mit Video samt Ton).
+8. **Ausgabe:** `guide.json` (Schema `rekord.guide`, Version 1; Felder kommen nur dazu, werden nie umbenannt), `guide.md` mit Bildern, PDF, und **Teilen** als mobile Seite auf dem eigenen Share-Server (nur Texte, aktuelle geschwärzte Schritt-Bilder und optional Brief).
 9. **Automatisierungs-Brief:** „Wie oft pro Woche?“ eintragen, **Brief erstellen**. Claude ordnet die Schritte zu Gruppen: automatisierbar ja/teilweise/nein, womit (offizielle API, n8n, Trigger.dev, Claude-Code-Skript, Browser-Agent, Mensch), Aufwand. Ob eine App eine API hat, steht nur dann als „bekannt“ da, wenn es sicher ist, sonst „prüfen“. Die Zeitersparnis rechnet Rekord selbst aus Schrittdauern, Häufigkeit und Stundensatz. Auf der geteilten Seite steht eine Kurzfassung plus der Knopf „Diesen Ablauf automatisieren lassen“ (im ⋯-Menü pro Anleitung abschaltbar).
 10. **An Claude Code:** kopiert einen fertigen Auftrag in die Zwischenablage. Er verweist auf `get_guide` und den Brief und baut einen **inaktiven** n8n-Entwurf (über den n8n-MCP, sonst als `n8n-workflow.json` im Anleitungsordner).
 
-**Was den Mac verlässt:** Ohne ausdrückliche Aktion nichts. Für die Texte und den Brief gehen nur Text-Daten an die Anthropic-API: Elementnamen und Rollen, App-Namen, Fenstertitel und URLs ohne Query (E-Mail, IBAN, Telefon, Karte vorher maskiert) und das maskierte Transkript. Keine Screenshots, kein Ton, keine getippten Werte (die gibt es gar nicht). Beim Teilen gehen das Video mit Ton, die geschwärzten Schritt-Bilder und die Texte an deinen eigenen Share-Server. Geprüft im Abnahmelauf am 15.10.2026: einzige Verbindung `api.anthropic.com`.
+**Was den Mac verlässt:** Ohne ausdrückliche Aktion nichts. Für die Texte und den Brief gehen nur Text-Daten an die Anthropic-API: Elementnamen und Rollen, App-Namen, Fenstertitel und URLs ohne Query (E-Mail, IBAN, Telefon, Karte vorher maskiert) und das maskierte Transkript. Keine Screenshots, kein Ton, keine getippten Werte (die gibt es gar nicht). Beim Teilen gehen die aktuellen geschwärzten Schritt-Bilder, Texte, App-Namen, stabile Anleitungs-ID und optional der Brief an deinen eigenen Share-Server. Rohvideo und Ton bleiben lokal. Der Server muss `guide-lifecycle-v2` unterstützen. Widerruf sperrt alle verbundenen Fassungen und alte Video-Verknüpfungen.
 
 **Ablage:** `~/Movies/Rekord/Anleitungen/<Datum Titel>/` mit `project.json`, `screen.mov`, `microphone.m4a` (öffnet auch als Video-Projekt), `steps.json` (Roh-Klicks), `transcript.json`, `guide.json`, `guide.md`, `images/`, optional `guide.pdf`, `automation-brief.json`/`.md`, `share.json`.
 
@@ -127,7 +128,7 @@ Den Share-Server betreibst du selbst (Docker oder Node 22, Anleitung in [share-s
 5. **Stopp** öffnet den Editor.
    - Pausen werden automatisch zu Schnitten.
    - Die Tonspuren bekommen während der Pause Stille, damit Bild und Ton synchron bleiben.
-6. Das Projekt liegt unter `~/Movies/Rekord/<Name>.rekord`: `project.json`, `screen.mov`, optional `camera.mov` und `microphone.m4a`. Den Ordner immer komplett zusammenhalten.
+6. Das Projekt liegt unter `~/Movies/Rekord/<Name>.rekord`: `project.json`, `screen.mov`, optional `camera.mov` und `microphone.m4a`. Den Ordner immer komplett zusammenhalten. Eigene Ordner (eine Ebene, z. B. `~/Movies/Rekord/Kunden/`) sind die Ordner der Bibliothek. `Meetings`, `Anleitungen` und `Inventur` sind reserviert.
 
 **Technische Details der Aufnahme**
 - **Video:** H.264 mit hoher Bitrate in Retina-Auflösung, maximal 4096 px an der langen Kante, in sRGB, jede Datei ist als BT.709 getaggt.
@@ -236,3 +237,9 @@ Bis Version 1.2.0 hieß die App „Focus Recorder“. `update.sh` zieht ältere 
 
 Bewusst unverändert bleibt die Bundle-ID `dev.sapunov.FocusRecorder`. Sie ist nirgends sichtbar, hält aber die macOS-Freigaben und Einstellungen.
 
+
+## Arbeits-Inventur
+
+Lokaler 5-Sekunden-Sampler, Bilder bei Kontextwechsel/30 Sekunden, Text-Zusammenfassung alle 15 Minuten (Sonnet 5.5), Prozess-Katalog am Abend (Opus 5.5). `InventoryRecorder`, `InventoryStore` und `RecorderCore/Inventory*.swift` trennen Erfassung, Oberfläche und Text-Auswertung. Claude-Transport, OCR und AX-Leser sind mit dem Anleitungs-Modus geteilt. Standardbudget 400.000 Tokens pro Tag; ausstehende Blöcke aufbewahrter Tage werden später nachgeholt.
+
+[Bedienung](../README.md#arbeits-inventur) · [Datenschutz](inventur-datenschutz.md) · [Abnahme und Replay](validation/inventory/acceptance.md) · [MCP](MCP.md)

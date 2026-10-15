@@ -33,7 +33,10 @@ struct EditorTopBar: View {
                 .buttonStyle(IconButtonStyle(size: 30,filled: false)).help("Zuschaueransicht").accessibilityLabel("Zuschaueransicht").disabled(store.busy)
             Button { store.export() } label: { Label("Exportieren",systemImage: "square.and.arrow.up") }
                 .buttonStyle(PillButtonStyle(height: 30,prominent: true)).disabled(store.project == nil)
-            Button { store.share() } label: { Label("Link teilen",systemImage: "link") }
+            Menu {
+                Button("Link teilen") { store.share() }
+                Button("Als Video-Angebot teilen …") { store.share(forOffer: true) }
+            } label: { Label("Teilen",systemImage: "link") }
                 .buttonStyle(AccentButtonStyle(height: 30)).disabled(store.busy)
         }.padding(.horizontal,18).frame(height: 56)
         .background(StudioTheme.sidebar)

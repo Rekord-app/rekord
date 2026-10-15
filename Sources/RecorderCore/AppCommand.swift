@@ -3,7 +3,7 @@ import Foundation
 /// A `rekord://` command (sent by the MCP server, scripts or any app on the Mac). Parsing never traps:
 /// duplicate, unknown or malformed parameters and unknown actions become a readable error.
 public struct AppCommand: Equatable, Sendable {
-    public enum Action: String, Sendable { case open, start, stop, pause, share, meetings, meeting, meetingStop = "meeting-stop", guides, guide, guideStop = "guide-stop" }
+    public enum Action: String, Sendable { case inventory, inventoryPause = "inventory-pause", inventoryResume = "inventory-resume", open, start, stop, pause, share, meetings, meeting, meetingStop = "meeting-stop", guides, guide, guideStop = "guide-stop" }
     public enum Source: String, Sendable { case display, area169 = "area-16:9" }
     public var action: Action
     /// Project folder for `open` / `share` (absolute, standardized).
@@ -11,12 +11,13 @@ public struct AppCommand: Equatable, Sendable {
     public var source: Source?
     /// Request id chosen by the caller; the app reports the result for it in status.json.
     public var id: String?
+    public var minutes: Int?
 
     public struct ParseError: LocalizedError, Equatable {
         public let message: String
         public var errorDescription: String? { message }
     }
-    static let allowed: [Action: Set<String>] = [.open: ["path","id"],.start: ["source","id"],.stop: ["id"],.pause: ["id"],.share: ["path","id"],
+    static let allowed: [Action: Set<String>] = [.inventory: ["id"],.inventoryPause: ["id","minutes"],.inventoryResume: ["id"],.open: ["path","id"],.start: ["source","id"],.stop: ["id"],.pause: ["id"],.share: ["path","id"],
                                                  .meetings: ["path","id"],.meeting: ["id"],.meetingStop: ["id"],
                                                  .guides: ["path","id"],.guide: ["id"],.guideStop: ["id"]]
 
@@ -34,6 +35,10 @@ public struct AppCommand: Equatable, Sendable {
             values[item.name] = item.value ?? ""
         }
         var command = AppCommand(action: action)
+        if let raw = values["minutes"] {
+            guard let minutes = Int(raw), (1...1440).contains(minutes) else { throw fail("minutes muss zwischen 1 und 1440 liegen.") }
+            command.minutes = minutes
+        }
         if let id = values["id"] {
             guard !id.isEmpty, id.count <= 128, id.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { throw fail("Ungültige Auftrags-ID.") }
             command.id = id

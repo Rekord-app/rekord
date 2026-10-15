@@ -14,6 +14,8 @@ if ! xcode-select -p >/dev/null 2>&1 || ! command -v swift >/dev/null 2>&1; then
     exit 1
 fi
 
+"$PROJECT_DIR/scripts/check-release.sh" --toolchain
+
 # A running app keeps the old binary; quit it gracefully (it refuses while recording or exporting).
 quit_app() {
     local name="$1" process="$2"

@@ -463,3 +463,16 @@ extension View {
             .contentShape(Capsule())
     }
 }
+
+// MARK: - Prompts
+
+extension View {
+    /// Alert with one text field (new folder, rename). Empty input disables the confirm button.
+    func textPrompt(_ title: String,message: String? = nil,isPresented: Binding<Bool>,text: Binding<String>,confirm: String,action: @escaping () -> Void) -> some View {
+        alert(title,isPresented: isPresented) {
+            TextField("Name",text: text)
+            Button(confirm,action: action).keyboardShortcut(.defaultAction).disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Abbrechen",role: .cancel) {}
+        } message: { if let message { Text(message) } }
+    }
+}

@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { createOfferStore } from './offers.mjs';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readFile, rename, rm, stat, readdir, open, writeFile } from 'node:fs/promises';
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
@@ -8,12 +9,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const assets = fileURLToPath(new URL('./public/', import.meta.url));
+const validSource = /^[A-Za-z0-9_-]{1,128}$/;
 const validID = /^[A-Za-z0-9_-]{32}$/;
 const html = value => String(value).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const headers = {
   'X-Content-Type-Options':'nosniff', 'Referrer-Policy':'no-referrer',
   'X-Robots-Tag':'noindex, nofollow, noarchive', 'Cache-Control':'no-store',
-  'Content-Security-Policy':"default-src 'none'; style-src 'self'; script-src 'self'; media-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy':"default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; media-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'",
 };
 // Minimal, bounded MP4 inspection: top-level boxes must start with ftyp and contain media data plus a movie
 // header with a positive duration and at least one video track. Reads only box headers and the moov box (≤ 64 MiB).
@@ -28,20 +30,21 @@ function mp4Children(buffer) {
   }
   return boxes;
 }
-function moovHasVideo(moov) {
+function moovDuration(moov) {
   const boxes = mp4Children(moov), mvhd = boxes.find(box => box.type === 'mvhd');
   if (!mvhd || mvhd.data.length < 20) return false;
   let timescale, duration;
   if (mvhd.data[0] === 1) { if (mvhd.data.length < 32) return false; timescale = mvhd.data.readUInt32BE(20); duration = Number(mvhd.data.readBigUInt64BE(24)); }
   else { timescale = mvhd.data.readUInt32BE(12); duration = mvhd.data.readUInt32BE(16); }
   if (!timescale || !duration) return false;
-  return boxes.filter(box => box.type === 'trak').some(trak => {
+  const hasVideo = boxes.filter(box => box.type === 'trak').some(trak => {
     const mdia = mp4Children(trak.data).find(box => box.type === 'mdia');
     const hdlr = mdia && mp4Children(mdia.data).find(box => box.type === 'hdlr');
     return Boolean(hdlr && hdlr.data.length >= 12 && hdlr.data.toString('latin1',8,12) === 'vide');
   });
+  return hasVideo && Number.isFinite(duration/timescale) ? duration/timescale : 0;
 }
-export async function isPlayableMP4(file,size) {
+export async function inspectMP4(file,size) {
   const handle = await open(file,'r');
   try {
     const head = Buffer.alloc(16); let offset = 0, first = true, moov = null, media = false;
@@ -56,9 +59,10 @@ export async function isPlayableMP4(file,size) {
       if (type === 'mdat' && boxSize > header) media = true;
       offset += boxSize;
     }
-    return Boolean(moov && media && moovHasVideo(moov));
+    return moov && media ? moovDuration(moov) : 0;
   } finally { await handle.close(); }
 }
+export async function isPlayableMP4(file,size) { return Boolean(await inspectMP4(file,size)); }
 // Optional link under shared guides ("Diesen Ablauf automatisieren lassen"); none unless CTA_URL is set.
 const defaultCTA = '';
 const automatable = { ja:'automatisierbar', teilweise:'teilweise', nein:'bleibt manuell' };
@@ -86,8 +90,9 @@ function parseGuide(body) {
     brief = { summary:text(input.brief.summary,1500,'brief.summary'), saving:text(input.brief.saving,300,'brief.saving'), groups };
   }
   const apps = Array.isArray(input.apps) ? input.apps.filter(a => typeof a === 'string').slice(0,10).map(a => a.slice(0,60)) : [];
-  if (input.videoId !== undefined && input.videoId !== null && !validID.test(input.videoId)) throw new RequestError(400,'Ungültige Video-ID.');
-  return { title:text(input.title,180,'title') || 'Anleitung', summary:text(input.summary,1000,'summary'), apps, steps, brief, cta:input.cta !== false, videoId:input.videoId || null };
+  if (input.videoId != null) throw new RequestError(409,'Bitte die App aktualisieren: Anleitungen dürfen kein Rohvideo enthalten.');
+  if (input.sourceGuideId != null && (typeof input.sourceGuideId !== 'string' || !validSource.test(input.sourceGuideId))) throw new RequestError(400,'Ungültige Anleitungs-ID.');
+  return { title:text(input.title,180,'title') || 'Anleitung', summary:text(input.summary,1000,'summary'), apps, steps, brief, cta:input.cta !== false, sourceGuideId:input.sourceGuideId || null, videoId:null };
 }
 function guidePage(item, prefix, ctaURL) {
   const date = new Date(item.createdAt).toLocaleDateString('de-DE',{ day:'numeric',month:'long',year:'numeric' });
@@ -109,7 +114,7 @@ function rangeFor(value, size) {
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start >= size || end < start) throw new RequestError(416,'Ungültiger Videobereich.');
   return { start, end, partial:true };
 }
-export async function createShareServer({ storageDirectory, uploadToken, publicBaseURL = null, maxUploadBytes = 2*1024**3, maxStorageBytes = 20*1024**3, maxConcurrentUploads = 2, maxGuideBytes = 64*1024**2, ctaURL = defaultCTA } = {}) {
+export async function createShareServer({ storageDirectory, uploadToken, publicBaseURL = null, maxUploadBytes = 2*1024**3, maxStorageBytes = 20*1024**3, maxConcurrentUploads = 2, maxGuideBytes = 64*1024**2, ctaURL = defaultCTA,offersEnabled = true,privacyURL = '',operatorName = '',offerOptions = {} } = {}) {
   if (!storageDirectory || typeof uploadToken !== 'string' || uploadToken.length < 32) throw new Error('Storage directory and an upload token of at least 32 characters are required.');
   let baseURL = null, publicPath = "";
   if (publicBaseURL) {
@@ -146,12 +151,106 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
       console.error(`Rekord share: damaged metadata ${file} moved to quarantine/`);
     }
   }
-  // Revoked media remains recoverable by the operator, and still counts against the quota.
+  // Content quota includes all retained guide files (including metadata, orphans and quarantine).
+  // Video quota remains its media size for compatibility with existing clients.
+  const diskBytes = async directory => {
+    let bytes = 0;
+    for (const entry of await readdir(directory,{ withFileTypes:true }).catch(() => [])) {
+      const file = path.join(directory,entry.name);
+      if (entry.isDirectory()) bytes += await diskBytes(file);
+      else if (entry.isFile()) bytes += (await stat(file)).size;
+    }
+    return bytes;
+  };
   for (const file of await readdir(trash)) if (file.endsWith('.mp4')) used += (await stat(path.join(trash,file))).size;
   const guideRoot = path.join(root,'guides'), guideTrash = path.join(trash,'guides'), guides = new Map();
+  const journals = path.join(trash,'operations'), revokedVideos = new Set(), revokedGuides = new Set();
   await mkdir(guideRoot,{ recursive:true, mode:0o700 }); await mkdir(guideTrash,{ recursive:true, mode:0o700 });
-  for (const file of await readdir(guideRoot)) { if (/^[A-Za-z0-9_-]{32}\.json$/.test(file)) { const item = JSON.parse(await readFile(path.join(guideRoot,file),'utf8')); guides.set(item.id,item); used += item.bytes; } }
-  let reserved = 0, active = 0;
+  await mkdir(journals,{ recursive:true,mode:0o700 });
+  const move = async (from,to) => { try { await rename(from,to); } catch (error) { if (['ENOTEMPTY','EEXIST'].includes(error.code)) await rename(from,`${to}-recovered-${randomBytes(6).toString('hex')}`); else if (error.code !== 'ENOENT') throw error; } };
+  const finishRevoke = async operation => {
+    for (const id of operation.guides) {
+      await move(path.join(guideRoot,`${id}.json`),path.join(guideTrash,`${id}.json`));
+      await move(path.join(guideRoot,id),path.join(guideTrash,id));
+    }
+    for (const id of operation.videos) {
+      await move(path.join(meta,`${id}.json`),path.join(trash,`${id}.json`));
+      await move(path.join(root,`${id}.mp4`),path.join(trash,`${id}.mp4`));
+    }
+  };
+  // A durable deny-list is the commit point. On restart it wins over every metadata file.
+  // Invalid journals stop startup rather than accidentally restoring a revoked capability.
+  for (const name of await readdir(journals)) if (name.endsWith('.json')) {
+    const operation = JSON.parse(await readFile(path.join(journals,name),'utf8'));
+    if (!Array.isArray(operation.guides) || !Array.isArray(operation.videos) || ![...operation.guides,...operation.videos].every(id => validID.test(id))) throw new Error('Invalid revocation journal');
+    for (const id of operation.guides) revokedGuides.add(id);
+    for (const id of operation.videos) { revokedVideos.add(id); const item = items.get(id); items.delete(id); if (item && byHash.get(item.sha256)?.id === id) byHash.delete(item.sha256); }
+    await finishRevoke(operation);
+  }
+  for (const file of await readdir(guideRoot)) {
+    const match = /^([A-Za-z0-9_-]{32})\.json$/.exec(file);
+    if (!match || revokedGuides.has(match[1])) continue;
+    try {
+      const item = JSON.parse(await readFile(path.join(guideRoot,file),'utf8'));
+      if (!item || item.id !== match[1] || typeof item.title !== 'string' || !Number.isFinite(Date.parse(item.createdAt)) ||
+          !Array.isArray(item.apps) || !item.apps.every(app => typeof app === 'string') || !Array.isArray(item.steps) || !item.steps.length || item.steps.length > 200 ||
+          !item.steps.every(step => step && typeof step.text === 'string' && typeof step.image === 'boolean') ||
+          (item.sourceGuideId != null && (typeof item.sourceGuideId !== 'string' || !validSource.test(item.sourceGuideId))) || (item.videoId != null && (!validID.test(item.videoId) || !items.has(item.videoId))) ||
+          (item.brief != null && (!Array.isArray(item.brief.groups) || !item.brief.groups.every(group => group && Array.isArray(group.steps))))) throw new Error('inconsistent guide');
+      for (const [i,step] of item.steps.entries()) if (step.image) {
+        const image = await readFile(path.join(guideRoot,item.id,`${i+1}.jpg`));
+        if (image.length < 4 || image[0] !== 255 || image[1] !== 216 || image[2] !== 255) throw new Error('missing image');
+      }
+      item.bytes = (await stat(path.join(guideRoot,file))).size + await diskBytes(path.join(guideRoot,item.id));
+      guides.set(item.id,item);
+    } catch {
+      problems += 1;
+      const target = path.join(quarantine,'guides'); await mkdir(target,{ recursive:true,mode:0o700 });
+      await move(path.join(guideRoot,file),path.join(target,file));
+      await move(path.join(guideRoot,match[1]),path.join(target,match[1]));
+      console.error(`Rekord share: damaged guide ${file} quarantined`);
+    }
+  }
+  used += await diskBytes(guideRoot) + await diskBytes(guideTrash) + await diskBytes(path.join(quarantine,'guides'));
+  let reserved = 0, active = 0, mutations = Promise.resolve(), revocationGeneration = 0;
+  const revokedSourceGeneration = new Map();
+  const mutate = action => { const result = mutations.then(action); mutations = result.catch(() => {}); return result; };
+  const affected = (kind,id) => {
+    const videoIDs = new Set(kind === 'video' ? [id] : []), guideIDs = new Set(kind === 'guide' ? [id] : []), sources = new Set();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const guide of guides.values()) {
+        if (guideIDs.has(guide.id) || (guide.videoId && videoIDs.has(guide.videoId)) || (guide.sourceGuideId && sources.has(guide.sourceGuideId))) {
+          if (!guideIDs.has(guide.id)) { guideIDs.add(guide.id); changed = true; }
+          if (guide.videoId && !videoIDs.has(guide.videoId)) { videoIDs.add(guide.videoId); changed = true; }
+          if (guide.sourceGuideId && !sources.has(guide.sourceGuideId)) { sources.add(guide.sourceGuideId); changed = true; }
+        }
+      }
+    }
+    return { guides:[...guideIDs],videos:[...videoIDs] };
+  };
+  const revoke = (kind,id) => mutate(async () => {
+    const known = kind === 'guide' ? guides.has(id) || revokedGuides.has(id) : items.has(id) || revokedVideos.has(id);
+    if (!known) throw new RequestError(404,'Freigabe nicht verfügbar.');
+    const operation = affected(kind,id), name = randomBytes(24).toString('base64url');
+    const temporary = path.join(journals,`${name}.tmp`), destination = path.join(journals,`${name}.json`);
+    const handle = await open(temporary,'wx',0o600);
+    try { await handle.writeFile(JSON.stringify(operation)); await handle.sync(); } finally { await handle.close(); }
+    await rename(temporary,destination);
+    const journalDirectory = await open(journals,'r');
+    try { await journalDirectory.sync(); } finally { await journalDirectory.close(); }
+    revocationGeneration += 1;
+    for (const guideID of operation.guides) {
+      const source = guides.get(guideID)?.sourceGuideId;
+      if (source) revokedSourceGeneration.set(source,revocationGeneration);
+      revokedGuides.add(guideID); guides.delete(guideID);
+    }
+    for (const videoID of operation.videos) { revokedVideos.add(videoID); const item = items.get(videoID); items.delete(videoID); if (item && byHash.get(item.sha256)?.id === videoID) byHash.delete(item.sha256); }
+    await finishRevoke(operation);
+    return operation;
+  });
+  const guideReceipt = (item,origin) => ({ id:item.id,title:item.title,bytes:item.bytes,createdAt:item.createdAt,sourceGuideId:item.sourceGuideId || null,videoId:item.videoId || null,url:`${origin}/g/${item.id}` });
   const expected = Buffer.from(`Bearer ${uploadToken}`);
   const authorize = req => { const received = Buffer.from(req.headers.authorization || ''); if (received.length !== expected.length || !timingSafeEqual(received,expected)) throw new RequestError(401,'Upload-Zugang fehlt oder ist ungültig.'); };
   const json = (res,status,value) => { const bytes = Buffer.from(JSON.stringify(value)); res.writeHead(status,{ ...headers,'Content-Type':'application/json; charset=utf-8','Content-Length':bytes.length }); res.end(bytes); };
@@ -173,6 +272,26 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
     if (expired(item)) { await removeExpired(item); throw new RequestError(410,'Dieser Link ist abgelaufen.'); }
     return item;
   };
+  const offers = await createOfferStore({ storageDirectory:root,uploadToken,prefix:publicPath,authorize,json,headers,
+    origin:() => baseURL || `http://127.0.0.1:${server.address().port}`,enabled:offersEnabled,privacyURL,operatorName,...offerOptions,
+    getVideo:async id => {
+      const existing = await metadata(id);
+      if (Number.isFinite(existing.durationSeconds) && existing.durationSeconds > 0) return existing;
+      return mutate(async () => {
+      let item = await metadata(id);
+      if (!Number.isFinite(item.durationSeconds) || item.durationSeconds <= 0) {
+        const durationSeconds = await inspectMP4(path.join(root,`${id}.mp4`),item.bytes);
+        if (!durationSeconds) throw new RequestError(422,'Videodauer konnte nicht gelesen werden.');
+        item = { ...await metadata(id),durationSeconds };
+        const temp = path.join(meta,`${id}.${randomBytes(8).toString('hex')}.tmp`);
+        await writeFile(temp,JSON.stringify(item),{ mode:0o600 }); await rename(temp,path.join(meta,`${id}.json`));
+        items.set(id,item); byHash.set(item.sha256,item);
+      }
+      return item;
+      });
+    }
+  });
+  const offerSweeper = setInterval(() => { offers.sweep().catch(() => console.error('Rekord share: offer cleanup failed')); },60000); offerSweeper.unref();
   const server = http.createServer(async (req,res) => {
     try {
       const url = new URL(req.url,'http://localhost');
@@ -180,7 +299,8 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
         if (!url.pathname.startsWith(publicPath+'/')) throw new RequestError(404,'Nicht gefunden.');
         url.pathname = url.pathname.slice(publicPath.length);
       }
-      if (req.method === 'GET' && url.pathname === '/api/status') { authorize(req); return json(res,200,{ service:'focus-recorder-share',version:1,features:['expiry'],maxUploadBytes,availableBytes:Math.max(0,maxStorageBytes-used-reserved),problems }); }
+      if (req.method === 'GET' && url.pathname === '/api/status') { authorize(req); return json(res,200,{ service:'focus-recorder-share',version:1,features:['expiry','guide-lifecycle-v2',...offers.features()],offerAnalytics:offers.health(),maxUploadBytes,availableBytes:Math.max(0,maxStorageBytes-used-reserved),problems }); }
+      if (await offers.route(req,res,url)) return;
       if (req.method === 'GET' && url.pathname === '/api/videos') {
         authorize(req); const origin = baseURL || `http://127.0.0.1:${server.address().port}`;
         return json(res,200,{ videos:[...items.values()].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(item => ({ ...item,url:`${origin}/v/${item.id}` })) });
@@ -217,12 +337,13 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
           const file = await open(temp,'r'); const signature = Buffer.alloc(12);
           try { await file.read(signature,0,12,0); } finally { await file.close(); }
           if (signature.toString('ascii',4,8) !== 'ftyp') throw new RequestError(415,'Datei ist kein MP4-Container.');
-          if (!await isPlayableMP4(temp,bytes)) throw new RequestError(415,'Datei ist kein abspielbares Video (keine Videospur oder Dauer).');
+          const durationSeconds = await inspectMP4(temp,bytes);
+          if (!durationSeconds) throw new RequestError(415,'Datei ist kein abspielbares Video (keine Videospur oder Dauer).');
           let title = 'Bildschirmaufnahme';
           if (typeof req.headers['x-focus-title'] === 'string') title = Buffer.from(req.headers['x-focus-title'],'base64url').toString('utf8').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,180) || title;
           const sha256 = hash.digest('hex');
           if (expectedHash && sha256 !== expectedHash) throw new RequestError(400,'Die Datei-Prüfsumme stimmt nicht überein.');
-          const item = { id,title,bytes,sha256,createdAt:new Date().toISOString(),...(expiresAt ? { expiresAt } : {}) };
+          const item = { id,title,bytes,sha256,durationSeconds,createdAt:new Date().toISOString(),...(expiresAt ? { expiresAt } : {}) };
           await rename(temp,destination);
           const metadataTemp = path.join(meta,`${id}.tmp`);
           await writeFile(metadataTemp,JSON.stringify(item),{ mode:0o600 });
@@ -238,31 +359,31 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
       const deletion = /^\/api\/videos\/([A-Za-z0-9_-]{32})$/.exec(url.pathname);
       // Change a link's expiry: {"expiresAt": null} keeps it forever, an ISO date in the future sets a new end.
       if (req.method === 'PATCH' && deletion) {
-        authorize(req); const item = await metadata(deletion[1]);
+        authorize(req);
         let body = '';
         for await (const chunk of req) { body += chunk; if (body.length > 1024) throw new RequestError(413,'Anfrage zu groß.'); }
         let value;
         try { value = JSON.parse(body).expiresAt; } catch { throw new RequestError(400,'Ungültige Anfrage.'); }
         if (value !== null && (typeof value !== 'string' || Number.isNaN(Date.parse(value)) || Date.parse(value) <= Date.now())) throw new RequestError(400,'expiresAt muss null oder ein Datum in der Zukunft sein.');
-        const next = { ...item }; if (value === null) delete next.expiresAt; else next.expiresAt = new Date(Date.parse(value)).toISOString();
-        const metadataTemp = path.join(meta,`${item.id}.tmp`);
-        await writeFile(metadataTemp,JSON.stringify(next),{ mode:0o600 }); await rename(metadataTemp,path.join(meta,`${item.id}.json`));
-        items.set(item.id,next); byHash.set(next.sha256,next);
-        const origin = baseURL || `http://127.0.0.1:${server.address().port}`;
-        return json(res,200,{ ...next,url:`${origin}/v/${item.id}` });
+        return await mutate(async () => {
+          const item = await metadata(deletion[1]);
+          const next = { ...item }; if (value === null) delete next.expiresAt; else next.expiresAt = new Date(Date.parse(value)).toISOString();
+          if (revokedVideos.has(item.id)) throw new RequestError(404,'Freigabe nicht verfügbar.');
+          const metadataTemp = path.join(meta,`${item.id}.tmp`);
+          await writeFile(metadataTemp,JSON.stringify(next),{ mode:0o600 }); await rename(metadataTemp,path.join(meta,`${item.id}.json`));
+          items.set(item.id,next); byHash.set(next.sha256,next);
+          const origin = baseURL || `http://127.0.0.1:${server.address().port}`;
+          return json(res,200,{ ...next,url:`${origin}/v/${item.id}` });
+        });
       }
       if (req.method === 'DELETE' && deletion) {
-        authorize(req); const item = await metadata(deletion[1]);
-        // Revoke the capability first. Media is retained in a private operator-recoverable folder.
-        await rename(path.join(meta,`${item.id}.json`),path.join(trash,`${item.id}.json`));
-        items.delete(item.id);
-        if (byHash.get(item.sha256)?.id === item.id) byHash.delete(item.sha256);
-        await rename(path.join(root,`${item.id}.mp4`),path.join(trash,`${item.id}.mp4`));
+        authorize(req); const operation = await revoke('video',deletion[1]);
+        for (const id of operation.videos) await offers.revokeVideo(id);
         res.writeHead(204,headers); return res.end();
       }
       if (req.method === 'GET' && url.pathname === '/api/guides') {
         authorize(req); const origin = baseURL || `http://127.0.0.1:${server.address().port}`;
-        return json(res,200,{ guides:[...guides.values()].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(item => ({ id:item.id,title:item.title,bytes:item.bytes,createdAt:item.createdAt,url:`${origin}/g/${item.id}` })) });
+        return json(res,200,{ guides:[...guides.values()].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(item => guideReceipt(item,origin)) });
       }
       if (req.method === 'POST' && url.pathname === '/api/guides') {
         authorize(req);
@@ -270,32 +391,44 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
         const declared = Number(req.headers['content-length']);
         if (!Number.isSafeInteger(declared) || declared <= 0) throw new RequestError(411,'Dateigröße fehlt.');
         if (declared > maxGuideBytes) throw new RequestError(413,'Anleitung überschreitet das Upload-Limit.');
+        if (active >= maxConcurrentUploads) throw new RequestError(429,'Zu viele gleichzeitige Uploads. Bitte erneut versuchen.');
         if (used+reserved+declared > maxStorageBytes) throw new RequestError(507,'Speicher ist voll.');
-        const chunks = []; let received = 0;
-        for await (const chunk of req) { received += chunk.length; if (received > declared) throw new RequestError(413,'Dateigröße stimmt nicht überein.'); chunks.push(chunk); }
-        const guide = parseGuide(Buffer.concat(chunks));
-        if (guide.videoId && !items.has(guide.videoId)) throw new RequestError(400,'Das Video zur Anleitung ist nicht (mehr) geteilt.');
-        const id = randomBytes(24).toString('base64url'), folder = path.join(guideRoot,id);
-        await mkdir(folder,{ mode:0o700 });
-        let bytes = 0; const steps = [];
-        for (const [i,step] of guide.steps.entries()) {
-          if (step.image) { await writeFile(path.join(folder,`${i+1}.jpg`),step.image,{ mode:0o600 }); bytes += step.image.length; }
-          steps.push({ text:step.text,note:step.note,warning:step.warning,image:!!step.image });
-        }
-        const item = { id,title:guide.title,summary:guide.summary,apps:guide.apps,steps,brief:guide.brief,cta:guide.cta,videoId:guide.videoId,bytes,createdAt:new Date().toISOString() };
-        const temp = path.join(guideRoot,`${id}.tmp`);
-        await writeFile(temp,JSON.stringify(item),{ mode:0o600 }); await rename(temp,path.join(guideRoot,`${id}.json`));
-        guides.set(id,item); used += bytes;
-        const origin = baseURL || `http://127.0.0.1:${server.address().port}`;
-        return json(res,201,{ id,title:item.title,bytes,createdAt:item.createdAt,url:`${origin}/g/${id}` });
+        const requestGeneration = revocationGeneration;
+        reserved += declared; active += 1;
+        try {
+          const chunks = []; let received = 0;
+          for await (const chunk of req) { received += chunk.length; if (received > declared) throw new RequestError(413,'Dateigröße stimmt nicht überein.'); chunks.push(chunk); }
+          if (received !== declared) throw new RequestError(400,'Upload ist unvollständig.');
+          const body = Buffer.concat(chunks), guide = parseGuide(body), fingerprint = createHash('sha256').update(body).digest('hex');
+          const item = await mutate(async () => {
+            if (guide.sourceGuideId && (revokedSourceGeneration.get(guide.sourceGuideId) ?? 0) > requestGeneration) throw new RequestError(409,'Die Anleitung wurde während des Uploads widerrufen. Bewusst erneut teilen, um einen neuen Link zu erstellen.');
+            const existing = guide.sourceGuideId && [...guides.values()].find(item => item.sourceGuideId === guide.sourceGuideId && item.fingerprint === fingerprint);
+            if (existing) return existing;
+            const id = randomBytes(24).toString('base64url'), folder = path.join(guideRoot,id), temporary = path.join(guideRoot,`${id}.tmp`);
+            const steps = guide.steps.map(step => ({ ...step,image:!!step.image }));
+            const item = { ...guide,id,steps,fingerprint,bytes:0,createdAt:new Date().toISOString() };
+            const imagesBytes = guide.steps.reduce((sum,step) => sum+(step.image?.length || 0),0);
+            // bytes includes metadata; stabilize the decimal length of the bytes field itself.
+            for (let i = 0; i < 4; i++) item.bytes = imagesBytes+Buffer.byteLength(JSON.stringify(item));
+            if (used+reserved-declared+item.bytes > maxStorageBytes) throw new RequestError(507,'Speicher ist voll.');
+            let committed = false;
+            try {
+              await mkdir(folder,{ mode:0o700 });
+              for (const [i,step] of guide.steps.entries()) if (step.image) await writeFile(path.join(folder,`${i+1}.jpg`),step.image,{ mode:0o600 });
+              await writeFile(temporary,JSON.stringify(item),{ mode:0o600 }); await rename(temporary,path.join(guideRoot,`${id}.json`));
+              guides.set(id,item); used += item.bytes; committed = true; return item;
+            } finally {
+              if (!committed) { await rm(folder,{ recursive:true,force:true }); await rm(temporary,{ force:true }); }
+            }
+          });
+          const origin = baseURL || `http://127.0.0.1:${server.address().port}`;
+          return json(res,201,guideReceipt(item,origin));
+        } finally { reserved -= declared; active -= 1; }
       }
       const guideDeletion = /^\/api\/guides\/([A-Za-z0-9_-]{32})$/.exec(url.pathname);
       if (req.method === 'DELETE' && guideDeletion) {
-        authorize(req); const item = guides.get(guideDeletion[1]);
-        if (!item) throw new RequestError(404,'Anleitung nicht verfügbar.');
-        await rename(path.join(guideRoot,`${item.id}.json`),path.join(guideTrash,`${item.id}.json`));
-        guides.delete(item.id);
-        await rename(path.join(guideRoot,item.id),path.join(guideTrash,item.id));
+        authorize(req); const operation = await revoke('guide',guideDeletion[1]);
+        for (const id of operation.videos) await offers.revokeVideo(id);
         res.writeHead(204,headers); return res.end();
       }
       const guideView = /^\/g\/([A-Za-z0-9_-]{32})$/.exec(url.pathname);
@@ -325,16 +458,17 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
         const body = Buffer.from(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(item.title)} · Rekord</title><link rel="stylesheet" href="${publicPath}/assets/player.css"><script defer src="${publicPath}/assets/player.js"></script></head><body><header><a class="brand" href="#" aria-label="Rekord"><span>Rekord</span></a><span class="private">Nur über diesen Link erreichbar</span></header><main><div class="eyebrow">GETEILTE AUFNAHME</div><h1>${html(item.title)}</h1><div class="player"><video controls playsinline preload="metadata" src="${publicPath}/media/${item.id}"></video></div><div class="details"><span>${html(new Date(item.createdAt).toLocaleDateString('de-DE',{day:'numeric',month:'long',year:'numeric'}))} · ${(item.bytes/1024**2).toFixed(1)} MB</span><button id="copy">Link kopieren</button></div><p id="feedback" role="status"></p></main><footer>Aufgenommen mit Rekord</footer></body></html>`);
         res.writeHead(200,{ ...headers,'Content-Type':'text/html; charset=utf-8','Content-Length':body.length }); return res.end(req.method === 'HEAD' ? undefined : body);
       }
-      const media = /^\/media\/([A-Za-z0-9_-]{32})$/.exec(url.pathname);
+      const media = /^\/(media|om)\/([A-Za-z0-9_-]{32})$/.exec(url.pathname);
       if ((req.method === 'GET' || req.method === 'HEAD') && media) {
-        const item = await metadata(media[1]); const file = path.join(root,`${item.id}.mp4`);
+        const id = media[1] === 'om' ? (await offers.media(media[2])).videoId : media[2];
+        const item = await metadata(id); const file = path.join(root,`${item.id}.mp4`);
         let range;
         try { range = rangeFor(req.headers.range,item.bytes); } catch (error) { res.setHeader('Content-Range',`bytes */${item.bytes}`); throw error; }
         res.writeHead(range.partial ? 206 : 200,{ ...headers,'Content-Type':'video/mp4','Accept-Ranges':'bytes','Content-Length':range.end-range.start+1,...(range.partial ? { 'Content-Range':`bytes ${range.start}-${range.end}/${item.bytes}` } : {}) });
         if (req.method === 'HEAD') return res.end();
         await pipeline(createReadStream(file,{ start:range.start,end:range.end }),res); return;
       }
-      if (req.method === 'GET' && ['/assets/player.css','/assets/player.js','/assets/guide.css'].includes(url.pathname)) {
+      if (req.method === 'GET' && ['/assets/player.css','/assets/player.js','/assets/tracking.js','/assets/guide.css'].includes(url.pathname)) {
         const file = await readFile(path.join(assets,path.basename(url.pathname)));
         res.writeHead(200,{ ...headers,'Content-Type':url.pathname.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8','Content-Length':file.length }); return res.end(file);
       }
@@ -346,10 +480,11 @@ export async function createShareServer({ storageDirectory, uploadToken, publicB
     }
   });
   server.requestTimeout = 30*60*1000; server.headersTimeout = 15000; server.keepAliveTimeout = 5000;
+  server.once('close',() => { clearInterval(sweeper); clearInterval(offerSweeper); });
   return server;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const server = await createShareServer({ storageDirectory:process.env.STORAGE_DIR || './storage',uploadToken:process.env.UPLOAD_TOKEN,publicBaseURL:process.env.PUBLIC_BASE_URL,maxUploadBytes:Number(process.env.MAX_UPLOAD_BYTES) || undefined,maxStorageBytes:Number(process.env.MAX_STORAGE_BYTES) || undefined,ctaURL:process.env.CTA_URL || undefined });
+  const server = await createShareServer({ storageDirectory:process.env.STORAGE_DIR || './storage',uploadToken:process.env.UPLOAD_TOKEN,publicBaseURL:process.env.PUBLIC_BASE_URL,maxUploadBytes:Number(process.env.MAX_UPLOAD_BYTES) || undefined,maxStorageBytes:Number(process.env.MAX_STORAGE_BYTES) || undefined,ctaURL:process.env.CTA_URL || undefined,offersEnabled:process.env.OFFERS_ENABLED !== 'false',privacyURL:process.env.PRIVACY_URL || '',operatorName:process.env.OPERATOR_NAME || '',offerOptions:{ analyticsOptions:{ maxSessions:Number(process.env.MAX_ANALYTICS_SESSIONS) || 10000,maxBytes:Number(process.env.MAX_ANALYTICS_BYTES) || 64*1024**2,retentionDays:Number(process.env.ANALYTICS_RETENTION_DAYS) || 90 } } });
   server.listen(Number(process.env.PORT) || 7341,process.env.HOST || '127.0.0.1',() => console.log(`Rekord share service listening on port ${server.address().port}`));
   for (const signal of ['SIGTERM','SIGINT']) process.on(signal,() => server.close(() => process.exit(0)));
 }

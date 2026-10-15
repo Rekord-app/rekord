@@ -1,0 +1,152 @@
+[
+  {
+    "id": "01-normal",
+    "exit_code": 0,
+    "output": {
+      "subject": "Projektstand – Testfirma",
+      "body": "Betreff: Projektstand – Testfirma\n\nHallo,\n\nhier ist der aktuelle Stand aus unserer Aufgabenliste:\n\nErledigt:\n- CRM Import abgeschlossen\n\nOffen:\n- Freigabe der Feldzuordnung\n\nNächste Schritte:\n- Testimport am Freitag\n\nDieser Entwurf wird vor dem Versand persönlich geprüft.",
+      "status": "draft",
+      "requires_human_review": true,
+      "sent": false,
+      "email_file": "output.eml"
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:15.996034+00:00"
+  },
+  {
+    "id": "02-empty",
+    "exit_code": 0,
+    "output": {
+      "status": "needs_input",
+      "error": "Keine erledigten Aufgaben; Zeitraum und Inhalt bitte menschlich klären",
+      "sent": false,
+      "requires_human_review": true
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:15.992259+00:00"
+  },
+  {
+    "id": "03-no-next",
+    "exit_code": 0,
+    "output": {
+      "subject": "Projektstand – Testfirma",
+      "body": "Betreff: Projektstand – Testfirma\n\nHallo,\n\nhier ist der aktuelle Stand aus unserer Aufgabenliste:\n\nErledigt:\n- CRM Import abgeschlossen\n\nOffen:\n- Keine Angaben in der Aufgabenliste.\n\nNächste Schritte:\n- Keine Angaben in der Aufgabenliste.\n\nDieser Entwurf wird vor dem Versand persönlich geprüft.",
+      "status": "draft",
+      "requires_human_review": true,
+      "sent": false,
+      "email_file": "output.eml"
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:15.995964+00:00"
+  },
+  {
+    "id": "04-open-only",
+    "exit_code": 0,
+    "output": {
+      "status": "needs_input",
+      "error": "Keine erledigten Aufgaben; Zeitraum und Inhalt bitte menschlich klären",
+      "sent": false,
+      "requires_human_review": true
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:16.017673+00:00"
+  },
+  {
+    "id": "05-duplicate",
+    "exit_code": 0,
+    "output": {
+      "subject": "Projektstand – Testfirma",
+      "body": "Betreff: Projektstand – Testfirma\n\nHallo,\n\nhier ist der aktuelle Stand aus unserer Aufgabenliste:\n\nErledigt:\n- CRM Import abgeschlossen\n\nOffen:\n- Keine Angaben in der Aufgabenliste.\n\nNächste Schritte:\n- Keine Angaben in der Aufgabenliste.\n\nDieser Entwurf wird vor dem Versand persönlich geprüft.",
+      "status": "draft",
+      "requires_human_review": true,
+      "sent": false,
+      "email_file": "output.eml"
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:16.022693+00:00"
+  },
+  {
+    "id": "06-conflict",
+    "exit_code": 0,
+    "output": {
+      "status": "needs_input",
+      "error": "Widersprüchliche Aufgabe: 1",
+      "sent": false,
+      "requires_human_review": true
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:16.020491+00:00"
+  },
+  {
+    "id": "07-missing-project",
+    "exit_code": 0,
+    "output": {
+      "status": "needs_input",
+      "error": "Projektname und strukturierte Aufgabenliste erforderlich",
+      "sent": false,
+      "requires_human_review": true
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:16.042142+00:00"
+  },
+  {
+    "id": "08-injection",
+    "exit_code": 0,
+    "output": {
+      "subject": "Projektstand – Testfirma",
+      "body": "Betreff: Projektstand – Testfirma\n\nHallo,\n\nhier ist der aktuelle Stand aus unserer Aufgabenliste:\n\nErledigt:\n- CRM Import abgeschlossen\n\nOffen:\n- Freigabe der Feldzuordnung\n\nNächste Schritte:\n- Testimport am Freitag\n\nDieser Entwurf wird vor dem Versand persönlich geprüft.",
+      "status": "draft",
+      "requires_human_review": true,
+      "sent": false,
+      "email_file": "output.eml"
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:16.046864+00:00"
+  },
+  {
+    "id": "09-sensitive",
+    "exit_code": 0,
+    "output": {
+      "subject": "Projektstand – Testfirma",
+      "body": "Betreff: Projektstand – Testfirma\n\nHallo,\n\nhier ist der aktuelle Stand aus unserer Aufgabenliste:\n\nErledigt:\n- Kontakt [E-Mail], IBAN [IBAN] geprüft\n\nOffen:\n- Keine Angaben in der Aufgabenliste.\n\nNächste Schritte:\n- Keine Angaben in der Aufgabenliste.\n\nDieser Entwurf wird vor dem Versand persönlich geprüft.",
+      "status": "draft",
+      "requires_human_review": true,
+      "sent": false,
+      "email_file": "output.eml"
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:16.048787+00:00"
+  },
+  {
+    "id": "10-unknown-status",
+    "exit_code": 0,
+    "output": {
+      "status": "needs_input",
+      "error": "Aufgabe braucht ID, Titel und Status done/open/next",
+      "sent": false,
+      "requires_human_review": true
+    },
+    "stderr": "",
+    "script_sha256": "9dab2cc5cf7f53a6cc052b5382f6fdbe3ad344431278554c3e51be1ff46a2b22",
+    "python": "3.12.10",
+    "finished_at": "2026-10-15T11:47:16.066165+00:00"
+  }
+]

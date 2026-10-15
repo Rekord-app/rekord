@@ -1,0 +1,6 @@
+{
+  "status": "needs_input",
+  "error": "Keine erledigten Aufgaben; Zeitraum und Inhalt bitte menschlich klären",
+  "sent": false,
+  "requires_human_review": true
+}

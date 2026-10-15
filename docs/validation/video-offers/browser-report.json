@@ -1,0 +1,42 @@
+[
+  {
+    "browser": "chrome",
+    "pass": true,
+    "lastPercent": 12.56704833333334,
+    "checks": [
+      "no pre-consent requests",
+      "decline",
+      "30/120",
+      "replay union",
+      "two different ranges",
+      "pause",
+      "CTA",
+      "reload",
+      "withdrawal",
+      "seek 10+5",
+      "390px layout",
+      "keyboard",
+      "no JavaScript"
+    ]
+  },
+  {
+    "browser": "webkit",
+    "pass": true,
+    "lastPercent": 12.548847292240689,
+    "checks": [
+      "no pre-consent requests",
+      "decline",
+      "30/120",
+      "replay union",
+      "two different ranges",
+      "pause",
+      "CTA",
+      "reload",
+      "withdrawal",
+      "seek 10+5",
+      "390px layout",
+      "keyboard",
+      "no JavaScript"
+    ]
+  }
+]

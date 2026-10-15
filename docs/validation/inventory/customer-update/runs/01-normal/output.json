@@ -1,0 +1,8 @@
+{
+  "subject": "Projektstand – Testfirma",
+  "body": "Betreff: Projektstand – Testfirma\n\nHallo,\n\nhier ist der aktuelle Stand aus unserer Aufgabenliste:\n\nErledigt:\n- CRM Import abgeschlossen\n- Datenfelder geprüft\n- Dublettentest abgeschlossen\n\nOffen:\n- Freigabe der Feldzuordnung\n- Freigabe des Berichts\n\nNächste Schritte:\n- Testimport am Freitag\n\nDieser Entwurf wird vor dem Versand persönlich geprüft.",
+  "status": "draft",
+  "requires_human_review": true,
+  "sent": false,
+  "email_file": "output.eml"
+}

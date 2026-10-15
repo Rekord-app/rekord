@@ -87,7 +87,8 @@ import RecorderCore
                 log("INFO microphone in use before the test: \(MeetingDetector.activeCall().map { "\($0.app) – \($0.title)" } ?? "no meeting app")")
             }
             let store = MeetingStore(root: root.appendingPathComponent("Meetings"))
-            store.autoRecord = true
+            store.setAutoRecord(true)
+            guard store.autoRecord else { log("FAIL automatic recording was not approved"); return }
             store.updateDetector(testProcessName: "ffmpeg")
             let begin = Date()
             let caller = Process(); caller.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")

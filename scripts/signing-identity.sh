@@ -16,7 +16,7 @@
 SIGNING_DIR="${REKORD_SIGNING_DIR:-${FOCUS_SIGNING_DIR:-$HOME/Library/Application Support/Rekord/signing}}"
 LEGACY_SIGNING_DIR="$HOME/Library/Application Support/Focus Recorder/signing"
 # Identity created before the rename: move it, so the certificate (and with it the privacy grants) stays the same.
-if [[ ! -d "$SIGNING_DIR" && -d "$LEGACY_SIGNING_DIR" ]]; then
+if [[ "${REKORD_SIGNING:-stable}" != "distribution" && ! -d "$SIGNING_DIR" && -d "$LEGACY_SIGNING_DIR" ]]; then
     mkdir -p "$(dirname "$SIGNING_DIR")" && mv "$LEGACY_SIGNING_DIR" "$SIGNING_DIR"
     [[ -f "$SIGNING_DIR/focus-recorder-signing.keychain-db" ]] && mv "$SIGNING_DIR/focus-recorder-signing.keychain-db" "$SIGNING_DIR/rekord-signing.keychain-db"
 fi
@@ -71,6 +71,15 @@ focus_sign() {
     # Helper executables inside Contents/MacOS (e.g. the MCP server) are signed first, as nested code.
     local helpers=()
     for helper in "$app"/Contents/MacOS/*; do [[ "$(basename "$helper")" != "Rekord" ]] && helpers+=("$helper"); done
+    if [[ "${REKORD_SIGNING:-stable}" == "distribution" ]]; then
+        [[ -n "${REKORD_SIGNING_IDENTITY:-}" ]] || { echo "Developer ID Application fehlt: REKORD_SIGNING_IDENTITY setzen." >&2; return 1; }
+        security find-identity -v -p codesigning | grep -F "$REKORD_SIGNING_IDENTITY" | grep -q 'Developer ID Application:' || { echo "Keine gültige Developer ID Application für diese Identität." >&2; return 1; }
+        for helper in "${helpers[@]}"; do
+            codesign --force --sign "$REKORD_SIGNING_IDENTITY" --options runtime --timestamp --identifier "$BUNDLE_ID.$(basename "$helper")" "$helper" || return
+        done
+        codesign --force --sign "$REKORD_SIGNING_IDENTITY" --options runtime --timestamp --identifier "$BUNDLE_ID" --entitlements "$entitlements" "$app"
+        return
+    fi
     if [[ "${REKORD_SIGNING:-${FOCUS_SIGNING:-stable}}" == "adhoc" ]]; then
         for helper in "${helpers[@]}"; do codesign --force --sign - --identifier "$BUNDLE_ID.$(basename "$helper")" "$helper"; done
         codesign --force --sign - --identifier "$BUNDLE_ID" --entitlements "$entitlements" "$app"

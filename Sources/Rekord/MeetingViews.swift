@@ -99,9 +99,10 @@ struct MeetingsView: View {
                     Image(systemName: meetings.autoRecord ? "bolt.fill" : "bolt.slash").font(.system(size: 9,weight: .bold))
                     Text(meetings.autoRecord ? "Calls werden automatisch aufgenommen" : "Automatische Aufnahme aus")
                 }.font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
+                Text("Aufnahme ab macOS 14.2 · Transkript ab macOS 26").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
                 if !meetings.hasAPIKey {
                     Button { meetings.showSettings = true } label: {
-                        Label("Claude-Schlüssel fehlt, ohne ihn gibt es nur das Transkript",systemImage: "key").font(StudioFont.caption).foregroundStyle(StudioTheme.warning)
+                        Label("Ohne Claude-Schlüssel: Audio und lokale Transkription",systemImage: "key").font(StudioFont.caption).foregroundStyle(StudioTheme.warning)
                     }.buttonStyle(.plain)
                 }
             }
@@ -377,9 +378,10 @@ struct SettingsSheet: View {
             }.padding(.horizontal,24).padding(.top,20).padding(.bottom,14)
             Form {
                 Section("Meetings") {
+                    Text("Aufnahme ab macOS 14.2 · lokale Transkription ab macOS 26. Ohne Claude-Schlüssel bleiben Audio und Transkript nutzbar. Automatische Aufnahme ist standardmäßig aus und muss nach dem Sicherheitsupdate neu bestätigt werden.").font(.caption)
                     TextField("Dein Name im Transkript",text: $meetings.ownName)
                     TextField("Begriffe, die oft fallen (Komma-getrennt)",text: $meetings.glossary,axis: .vertical).lineLimit(2...4)
-                    Toggle("Calls automatisch aufnehmen (Meet, Zoom, Teams, FaceTime, Slack …)",isOn: $meetings.autoRecord)
+                    Toggle("Calls automatisch aufnehmen (Meet, Zoom, Teams, FaceTime, Slack …)",isOn: Binding(get: { meetings.autoRecord },set: { meetings.setAutoRecord($0) }))
                     Toggle("Rekord beim Anmelden starten",isOn: Binding(get: { meetings.launchAtLogin },set: { meetings.setLaunchAtLogin($0) }))
                 }
                 Section {

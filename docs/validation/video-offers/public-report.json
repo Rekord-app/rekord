@@ -1,0 +1,9 @@
+{
+  "pass": true,
+  "transport": "public HTTPS",
+  "opening": 1,
+  "percent": 25.01789,
+  "preview": true,
+  "revoke": true,
+  "mediaRevoked": true
+}

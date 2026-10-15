@@ -101,99 +101,17 @@ final class GuideAccessibility: @unchecked Sendable {
     private func enableWebAccessibility(_ pid: pid_t) {
         guard pid > 0, pid != ownPID, !enabledApps.contains(pid) else { return }
         enabledApps.insert(pid)
-        let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(app,0.3)
-        // Electron exposes its tree with AXManualAccessibility; Chromium and WebKit with AXEnhancedUserInterface.
-        AXUIElementSetAttributeValue(app,"AXManualAccessibility" as CFString,kCFBooleanTrue)
-        if let bundle = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier, Self.chromiumBrowsers.contains(bundle) {
-            AXUIElementSetAttributeValue(app,"AXEnhancedUserInterface" as CFString,kCFBooleanTrue)
-        }
+        AccessibilityReader.enableWebAccessibility(pid)
     }
-    static let chromiumBrowsers: Set<String> = ["com.google.Chrome","com.google.Chrome.canary","com.brave.Browser","com.microsoft.edgemac","company.thebrowser.Browser","com.vivaldi.Vivaldi","com.operasoftware.Opera"]
 
-    private func attribute<T>(_ element: AXUIElement,_ name: String) -> T? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element,name as CFString,&value) == .success, let value else { return nil }
-        return value as? T
-    }
-    private func string(_ element: AXUIElement,_ name: String) -> String? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element,name as CFString,&value) == .success, let value else { return nil }
-        if let s = value as? String { return s }
-        if let a = value as? NSAttributedString { return a.string }
-        if let n = value as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID() { return n.stringValue }
-        return nil
-    }
-    private func role(of element: AXUIElement) -> String { (string(element,kAXRoleAttribute) ?? "AXUnknown").replacingOccurrences(of: "AX",with: "",options: .anchored) }
-    private func characterCount(_ element: AXUIElement) -> Int {
-        if let n: NSNumber = attribute(element,kAXNumberOfCharactersAttribute) { return n.intValue }
-        return string(element,kAXValueAttribute)?.count ?? 0
-    }
-    private func frame(of element: AXUIElement) -> CGRect? {
-        guard let p: AXValue = attribute(element,kAXPositionAttribute), let s: AXValue = attribute(element,kAXSizeAttribute) else { return nil }
-        var point = CGPoint.zero, size = CGSize.zero
-        guard AXValueGetValue(p,.cgPoint,&point), AXValueGetValue(s,.cgSize,&size), size.width > 0, size.height > 0 else { return nil }
-        return CGRect(origin: point,size: size)
-    }
-    /// Static text, images and unlabeled groups inside a button or link: use the control instead.
-    private func actionableAncestor(of element: AXUIElement) -> AXUIElement {
-        let r = role(of: element)
-        guard ["StaticText","Image","Group","Unknown","Generic"].contains(r) else { return element }
-        var current = element
-        for _ in 0..<4 {
-            guard let parent: AXUIElement = attribute(current,kAXParentAttribute) else { break }
-            let pr = role(of: parent)
-            if ["Button","Link","MenuItem","MenuButton","PopUpButton","CheckBox","RadioButton","Tab","Cell","Row","ListItem","MenuBarItem","DockItem","ComboBox","TextField"].contains(pr) { return parent }
-            if ["Window","WebArea","ScrollArea","Application"].contains(pr) { break }
-            current = parent
-        }
-        return element
-    }
-    private func describe(_ element: AXUIElement) -> GuideElement {
-        let r = role(of: element)
-        let subrole = string(element,kAXSubroleAttribute).map { $0.replacingOccurrences(of: "AX",with: "",options: .anchored) }
-        let secure = r == "SecureTextField" || subrole == "SecureTextField" || (string(element,kAXRoleDescriptionAttribute)?.lowercased().contains("passwort") ?? false)
-        let editable = GuideElement.editableRoles.contains(r) || secure
-        var labelText: String?
-        if let titleElement: AXUIElement = attribute(element,kAXTitleUIElementAttribute) { labelText = string(titleElement,kAXValueAttribute) ?? string(titleElement,kAXTitleAttribute) }
-        if labelText == nil, !editable { labelText = firstText(in: element,depth: 3) }
-        var value: String?
-        if !editable { value = string(element,kAXValueAttribute).map(SensitiveText.masked) }
-        let result = GuideElement(role: r,subrole: subrole,roleDescription: GuideElementText.clean(string(element,kAXRoleDescriptionAttribute)),
-                                  title: GuideElementText.clean(string(element,kAXTitleAttribute)).map(SensitiveText.masked),
-                                  description: GuideElementText.clean(string(element,kAXDescriptionAttribute)).map(SensitiveText.masked),
-                                  value: GuideElementText.clean(value),
-                                  placeholder: GuideElementText.clean(string(element,kAXPlaceholderValueAttribute)),
-                                  help: GuideElementText.clean(string(element,kAXHelpAttribute)),
-                                  labelText: GuideElementText.clean(labelText).map(SensitiveText.masked),
-                                  frame: frame(of: element).map(normalized),secure: secure)
-        return result
-    }
-    /// First visible text below an element (link and button labels in web pages are child text nodes).
-    private func firstText(in element: AXUIElement,depth: Int) -> String? {
-        guard depth > 0, let children: [AXUIElement] = attribute(element,kAXChildrenAttribute) else { return nil }
-        for child in children.prefix(12) {
-            let r = role(of: child)
-            if r == "StaticText", let text = GuideElementText.clean(string(child,kAXValueAttribute)) { return text }
-            if r == "Image", let text = GuideElementText.clean(string(child,kAXDescriptionAttribute)) { return text }
-            if let text = firstText(in: child,depth: depth-1) { return text }
-        }
-        return nil
-    }
-    /// URL of the web page containing the element (Safari and Chromium expose `AXURL` on the web area).
-    private func pageURL(from element: AXUIElement) -> String? {
-        var current: AXUIElement? = element
-        for _ in 0..<40 {
-            guard let node = current else { break }
-            if role(of: node) == "WebArea" {
-                if let url: URL = attribute(node,kAXURLAttribute) { return url.absoluteString }
-                if let s = string(node,kAXURLAttribute) { return s }
-            }
-            if role(of: node) == "Window" { break }
-            current = attribute(node,kAXParentAttribute)
-        }
-        return nil
-    }
+    private func attribute<T>(_ element: AXUIElement,_ name: String) -> T? { AccessibilityReader.attribute(element,name) }
+    private func string(_ element: AXUIElement,_ name: String) -> String? { AccessibilityReader.string(element,name) }
+    private func role(of element: AXUIElement) -> String { AccessibilityReader.role(of: element) }
+    private func characterCount(_ element: AXUIElement) -> Int { AccessibilityReader.characterCount(element) }
+    private func actionableAncestor(of element: AXUIElement) -> AXUIElement { AccessibilityReader.actionableAncestor(of: element) }
+    private func describe(_ element: AXUIElement) -> GuideElement { AccessibilityReader.describe(element,normalize: normalized) }
+    private func pageURL(from element: AXUIElement) -> String? { AccessibilityReader.pageURL(from: element) }
+
 }
 
 enum GuideElementText {

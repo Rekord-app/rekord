@@ -2,6 +2,7 @@
 set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-release}"
+"$PROJECT_DIR/scripts/check-release.sh" --toolchain
 swift build --package-path "$PROJECT_DIR" -c "$CONFIG" --product Rekord
 swift build --package-path "$PROJECT_DIR" -c "$CONFIG" --product rekord-mcp
 BIN_DIR="$(swift build --package-path "$PROJECT_DIR" -c "$CONFIG" --show-bin-path)"
@@ -15,6 +16,7 @@ cp "$BIN_DIR/Rekord" "$APP/Contents/MacOS/Rekord"
 # MCP server for Claude Code (stdio); signed as a nested executable below.
 cp "$BIN_DIR/rekord-mcp" "$APP/Contents/MacOS/rekord-mcp"
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+cp "$PROJECT_DIR/Tests/RecorderCoreTests/Fixtures/inventory-day.json" "$APP/Contents/Resources/inventory-day.json"
 cp "$PROJECT_DIR/Resources/Info.plist" "$APP/Contents/Info.plist"
 xattr -cr "$APP"
 # Stable local identity keeps macOS privacy grants across rebuilds (see signing-identity.sh).

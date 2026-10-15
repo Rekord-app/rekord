@@ -8,7 +8,7 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
 
 @MainActor final class EditorStore: ObservableObject {
     enum Phase { case idle, preparing, recording, stopping, exporting, uploading }
-    enum Workspace { case record, edit, meetings, guides }
+    enum Workspace { case record, edit, meetings, guides, inventory }
     @Published var workspace: Workspace = .record
     @Published var sourcesLoading = false
     @Published var recordingStyle = Style()
@@ -18,9 +18,13 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     let meetings: MeetingStore
     /// Guide mode (step-by-step guides from a narrated screen recording).
     let guides: GuideStore
+    let inventory: InventoryStore
     let exports = ExportQueue()
     private let recordingPanel = RecordingPanelController()
     private var monitorTask: Task<Void,Never>?
+    let shareActivity = ShareActivityStore()
+    @Published var showVideoOffers = false
+    @Published var offerVideo: SharedVideo?
     @Published var showShareSettings = false
     @Published var shareConfigured = !(UserDefaults.standard.string(forKey: "shareServer") ?? "").isEmpty
     @Published var shareReceipt: ShareReceipt?
@@ -38,7 +42,7 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     var recorderHUD: RecorderHUDController { hud }
     /// What Start records: the chosen area, or the selected display/window.
     var activeSource: CaptureSource? { captureMode == .area ? areaSource : sources.first(where: { $0.id == selectedSource }) }
-    @Published var phase: Phase = .idle { didSet { updateHotKeys() } }
+    @Published var phase: Phase = .idle { didSet { updateHotKeys(); if phase != .idle { inventory.checkIn.cancel() } } }
     @Published var recordingTitle = ""
     @Published var recordingMode: RecordingMode = .studio
     @Published var withMicrophone = false
@@ -73,6 +77,12 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     @Published var exportHeight = 1080
     @Published var exportFPS = 30
     @Published var recent: [URL] = []
+    /// Every recording in the recordings folder and its user folders, plus opened takes from elsewhere (archive).
+    @Published var library: [URL] = []
+    /// User folders in the recordings folder.
+    @Published var folders: [URL] = []
+    /// Folder shown in the library; nil = all recordings.
+    @Published var folderFilter: String?
     private var recorder: ScreenRecorder?
     private var pendingDirectory: URL?
     /// Take being recorded right now (never moved by the storage cleanup).
@@ -116,10 +126,13 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         self.captureRoot = captureRoot
         meetings = MeetingStore(root: meetingsRoot ?? MeetingsFolder.url,detect: !CommandLine.arguments.contains("--exit-after-diagnostics"))
         guides = GuideStore(root: guidesRoot ?? GuidesFolder.url)
-        if RecordingsFolder.migrateLegacy() {
+        inventory = InventoryStore()
+        if !CommandLine.arguments.contains("--exit-after-diagnostics"), RecordingsFolder.migrateLegacy() {
             UserDefaults.standard.set((UserDefaults.standard.stringArray(forKey: "recentProjects") ?? []).map(RecordingsFolder.migratedPath),forKey: "recentProjects")
         }
-        recent = (UserDefaults.standard.stringArray(forKey: "recentProjects") ?? []).map { URL(fileURLWithPath: $0) }.filter { FileManager.default.fileExists(atPath: $0.path) }
+        recent = (UserDefaults.standard.stringArray(forKey: "recentProjects") ?? []).map { URL(fileURLWithPath: $0) }.filter { FileManager.default.fileExists(atPath: $0.path) && !Library.isTemporary($0) }
+        if !CommandLine.arguments.contains("--exit-after-diagnostics") { UserDefaults.standard.set(recent.map(\.path),forKey: "recentProjects") }
+        refreshLibrary()
         // Takes interrupted by a crash or power loss become normal projects again.
         if !CommandLine.arguments.contains("--exit-after-diagnostics") {
             let folder = captureRoot ?? RecordingsFolder.url
@@ -140,15 +153,24 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         }
         refreshDevices()
         meetings.microphoneID = { [weak self] in self?.microphoneID ?? "" }
-        meetings.onPhaseChange = { [weak self] in self?.updateHotKeys(); self?.objectWillChange.send() }
+        meetings.onPhaseChange = { [weak self] in self?.updateHotKeys(); self?.objectWillChange.send(); self?.meetings.explainMigrationIfNeeded(); if self?.meetings.phase != .idle { self?.inventory.checkIn.cancel() } }
         meetings.bringForward = { [weak self] in self?.showMeetings() }
         meetings.canStart = { [weak self] in self.map { !$0.busy && $0.guides.phase == .idle } ?? true }
-        // Always-on call detection only helps if Rekord runs: start it at login once (switchable in the settings).
-        if !UserDefaults.standard.bool(forKey: "meetingLoginItemSet"), !CommandLine.arguments.contains("--exit-after-diagnostics") {
-            UserDefaults.standard.set(true,forKey: "meetingLoginItemSet"); meetings.setLaunchAtLogin(true)
+        // Login startup is an explicit setting, never enabled as a side effect of first launch.
+        inventory.pauseReason = { [weak self] in
+            guard let self else { return "manual" }
+            return self.busy || self.meetings.recording || self.guides.recording ? "meeting" : nil
         }
+        inventory.canAsk = { [weak self] in
+            guard let self else { return false }
+            return !self.busy && self.meetings.phase == .idle && self.guides.phase == .idle && !InventoryRecorder.locked && !InventoryRecorder.idle && !InventoryPresentation.isFullscreen
+        }
+        inventory.bringForward = { [weak self] in self?.showInventory() }
+        inventory.onChange = { [weak self] in self?.writeStatus() }
+        inventory.hourlyRate = { [weak self] in self?.guides.hourlyRate ?? 50 }
+        inventory.activate()
         guides.microphoneID = { [weak self] in self?.microphoneID ?? "" }
-        guides.onPhaseChange = { [weak self] in self?.updateHotKeys(); self?.objectWillChange.send() }
+        guides.onPhaseChange = { [weak self] in self?.updateHotKeys(); self?.objectWillChange.send(); if self?.guides.phase != .idle { self?.inventory.checkIn.cancel() } }
         guides.bringForward = { [weak self] in self?.showGuides() }
         guides.shareClient = { [weak self] in (self?.shareConfigured ?? false) ? try? self?.shareClient() : nil }
         for name in [AVCaptureDevice.wasConnectedNotification,AVCaptureDevice.wasDisconnectedNotification] {
@@ -243,6 +265,10 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         guard !busy else { return }
         if hudActive { closeRecorder() }
         pause(); workspace = .guides; updateMonitor(); bringMainWindowForward()
+    }
+    func showInventory() {
+        guard !busy else { return }; if hudActive { closeRecorder() }
+        pause(); workspace = .inventory; updateMonitor(); bringMainWindowForward()
     }
     func showEditor() { guard !busy,project != nil else { return }; workspace = .edit; updateMonitor() }
     func suspendMonitor() {
@@ -416,8 +442,12 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         pause(); self.project = project; self.directory = directory; history = []; future = []
         sourceTime = project.cuts.first?.start ?? 0; editedTime = 0; selectedCut = project.cuts.first?.id; selectedZoom = nil; selectedLayout = nil; removedFrame = nil
         timeline = nil; timelineKey = nil; playerReady = false; player.replaceCurrentItem(with: nil)
-        recent.removeAll { $0 == directory }; recent.insert(directory,at: 0); recent = Array(recent.prefix(12))
-        UserDefaults.standard.set(recent.map(\.path),forKey: "recentProjects")
+        // Test runs and snapshots open takes from temporary folders; those never enter the recent list.
+        if !Library.isTemporary(directory) {
+            recent.removeAll { $0 == directory }; recent.insert(directory,at: 0); recent = Array(recent.prefix(12))
+            UserDefaults.standard.set(recent.map(\.path),forKey: "recentProjects")
+        }
+        refreshLibrary()
         loadShareReceipt(directory: directory)
         status = displayName; refreshPlayback(); noteSaved(); writeStatus()
     }
@@ -583,6 +613,22 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     private var projectVersion: ProjectVersion?
     private var ticks = 0
     func noteSaved() { projectVersion = directory.flatMap(ProjectVersion.current) }
+    /// The open take moved on disk (folder, rename of its folder): keep editing it under the new path.
+    func relocateOpenProject(to target: URL) {
+        guard project != nil else { return }
+        directory = target
+        timeline = nil; timelineKey = nil; playerReady = false; player.replaceCurrentItem(with: nil)
+        loadShareReceipt(directory: target); refreshPlayback(); noteSaved(); writeStatus()
+    }
+    /// Closes the open take (e.g. before it goes to the Trash).
+    func closeProject() {
+        pause(); timelineTask?.cancel(); rebuilding = false
+        player.replaceCurrentItem(with: nil); timeline = nil; timelineKey = nil; playerReady = false
+        project = nil; directory = nil; projectVersion = nil; history = []; future = []; shareReceipt = nil; removedFrame = nil
+        selectedCut = nil; selectedZoom = nil; selectedLayout = nil
+        if workspace == .edit { workspace = .record }
+        writeStatus()
+    }
     /// Reloads the open project when another process (the MCP server) saved it; the previous state stays undoable.
     private func reloadIfChangedOutside() {
         guard phase == .idle, let directory, let current = project, let known = projectVersion, let version = ProjectVersion.current(directory), version != known,
@@ -597,11 +643,12 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     }
     /// Small status file the MCP server reads (phase, recorder, open project).
     func writeStatus() {
+        guard !CommandLine.arguments.contains("--exit-after-diagnostics") else { return }
         let folder = SupportFolder.url
         try? FileManager.default.createDirectory(at: folder,withIntermediateDirectories: true)
         let phaseName: String = switch phase { case .idle: "idle"; case .preparing: "preparing"; case .recording: paused ? "paused" : "recording"; case .stopping: "stopping"; case .exporting: "exporting"; case .uploading: "uploading" }
         let status: [String: Any] = ["phase": phaseName,"recorder_open": hudActive,"countdown": countdown as Any,"recording_seconds": phase == .recording ? (elapsed*10).rounded()/10 : 0,
-                                     "open_project": directory?.path as Any,"guide_phase": "\(guides.phase)","open_project_title": project == nil ? NSNull() : displayName,"updated": ISO8601DateFormatter().string(from: Date()),
+                                     "open_project": directory?.path as Any,"guide_phase": "\(guides.phase)","inventory_phase": inventory.phase.rawValue,"open_project_title": project == nil ? NSNull() : displayName,"updated": ISO8601DateFormatter().string(from: Date()),
                                      "last_command": lastCommand as Any]
         if let data = try? JSONSerialization.data(withJSONObject: status,options: [.prettyPrinted,.sortedKeys]) { try? data.write(to: folder.appendingPathComponent("status.json"),options: .atomic) }
     }
@@ -613,6 +660,9 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         do { command = try AppCommand.parse(url) }
         catch { status = "Befehl abgelehnt: \(error.localizedDescription)"; reportCommand(id: nil,action: url.host ?? "",error: error.localizedDescription); return }
         switch command.action {
+        case .inventory: showInventory(); reportCommand(command)
+        case .inventoryPause: inventory.pause(minutes: command.minutes ?? 15); reportCommand(command)
+        case .inventoryResume: inventory.resume(); reportCommand(command)
         case .open:
             guard let path = command.path else { openRecorder(); reportCommand(command); return }
             do { try openProject(path); bringMainWindowForward(); reportCommand(command) }
@@ -690,6 +740,7 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         ticks += 1
         if ticks % 20 == 0 { reloadIfChangedOutside(); if phase == .recording { writeStatus() } }
         if ticks % 1200 == 0 { cleanUpStorageIfDue() }   // checked every minute, runs at most once a day
+        if ticks % 60 == 0, workspace == .record, phase == .idle { refreshLibrary() }   // picks up Finder changes
         if phase == .recording, let recordingStart {
             elapsed = Date().timeIntervalSince(recordingStart)-pausedTotal-(pauseStarted.map { Date().timeIntervalSince($0) } ?? 0)
         }

@@ -345,10 +345,12 @@ public enum RecordingsFolder {
     public static var legacy: URL { movies.appendingPathComponent("Focus Recorder") }
     public static var current: URL { movies.appendingPathComponent("Rekord") }
     public static var url: URL {
-        !FileManager.default.fileExists(atPath: current.path) && FileManager.default.fileExists(atPath: legacy.path) ? legacy : current
+        if let root = ProcessInfo.processInfo.environment["REKORD_RECORDINGS_ROOT"] { return URL(fileURLWithPath: root) }
+        return !FileManager.default.fileExists(atPath: current.path) && FileManager.default.fileExists(atPath: legacy.path) ? legacy : current
     }
     /// Moves `~/Movies/Focus Recorder` to `~/Movies/Rekord` when only the old folder exists. Returns true after a move.
     @discardableResult public static func migrateLegacy() -> Bool {
+        guard ProcessInfo.processInfo.environment["REKORD_RECORDINGS_ROOT"] == nil else { return false }
         let files = FileManager.default
         guard !files.fileExists(atPath: current.path), files.fileExists(atPath: legacy.path) else { return false }
         return (try? files.moveItem(at: legacy,to: current)) != nil

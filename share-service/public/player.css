@@ -25,3 +25,14 @@ footer{max-width:1120px;margin:40px auto 0;padding:18px 28px 34px;color:var(--fa
 .gone .brand{justify-content:center;margin-bottom:28px}
 .gone h1{font-size:24px;font-weight:700;letter-spacing:-.4px;color:var(--text);margin:0 0 8px}
 .gone p{color:var(--muted,#9a9aa0);font-size:15px;margin:0}
+
+/* Personal video offers reuse the existing player and colour system. */
+.offer-message{max-width:760px;color:var(--muted);font-size:16px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;margin:-8px 0 24px}
+.booking{display:flex;align-items:center;justify-content:center;gap:24px;width:fit-content;min-width:240px;margin:24px auto;text-decoration:none;background:var(--accent);color:#fff;font-size:16px;font-weight:700;border-radius:999px;padding:16px 26px;box-shadow:0 6px 24px #ff4f4720}
+.booking:hover{background:var(--accent-deep)}
+.booking:focus-visible,a:focus-visible{outline:2px solid var(--text);outline-offset:4px}
+.tracking{border-top:1px solid var(--line);margin-top:32px;padding:18px 0 0;max-width:760px;color:var(--muted);font-size:13px;line-height:1.6}
+.tracking p{margin:0 0 12px}.tracking strong{color:var(--text)}
+#tracking-status{margin-top:12px;font-size:12px}
+[hidden]{display:none!important}footer a{color:var(--muted)}
+@media(max-width:600px){.booking{width:100%;margin:20px 0}.tracking{margin-top:24px}.tracking button{margin-bottom:8px;min-height:44px}.offer-message{font-size:14px}}

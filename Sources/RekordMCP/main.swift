@@ -32,8 +32,8 @@ func text(_ value: Any) -> [String: Any] {
 // MARK: Recordings
 
 func allRecordings() -> [URL] {
-    var urls = (try? FileManager.default.contentsOfDirectory(at: recordingsFolder,includingPropertiesForKeys: [.contentModificationDateKey]))?.filter(ProjectFolder.isProject) ?? []
-    for path in appDefaults?.stringArray(forKey: "recentProjects") ?? [] where !urls.contains(where: { $0.path == path }) && ProjectFolder.isProject(URL(fileURLWithPath: path)) {
+    var urls = Library.projects(in: recordingsFolder)
+    for path in appDefaults?.stringArray(forKey: "recentProjects") ?? [] where !urls.contains(where: { $0.path == path }) && ProjectFolder.isProject(URL(fileURLWithPath: path)) && !Library.isTemporary(URL(fileURLWithPath: path)) {
         let url = URL(fileURLWithPath: path)
         if FileManager.default.fileExists(atPath: url.appendingPathComponent("project.json").path) { urls.append(url) }
     }
@@ -67,7 +67,7 @@ func save(_ project: Project,to url: URL) throws {
 }
 
 func summary(_ project: Project,_ url: URL) -> [String: Any] {
-    [
+    var result: [String: Any] = [
         "path": url.path,"title": project.name,"mode": project.recordingMode.rawValue,
         "source": "\(project.width)x\(project.height) @ \(project.fps) fps",
         "duration_s": round2(project.duration),"edited_duration_s": round2(project.editedDuration),
@@ -75,6 +75,8 @@ func summary(_ project: Project,_ url: URL) -> [String: Any] {
         "camera": project.hasCamera,"microphone": project.hasMicrophone == true,
         "modified": ISO8601DateFormatter().string(from: modified(url)),
     ]
+    if let folder = Library.folder(of: url,root: recordingsFolder) { result["folder"] = folder }
+    return result
 }
 func details(_ project: Project,_ url: URL) -> [String: Any] {
     var result = summary(project,url)
@@ -390,7 +392,7 @@ let tools: [Tool] = [
         }
         return content
     },
-]
+] + inventoryTools
 
 func guideSummary(_ guide: Guide,_ url: URL) -> [String: Any] {
     ["guide": url.path,"title": guide.title,"apps": guide.apps,"steps": guide.steps.count,"duration_s": round2(guide.duration),
@@ -468,7 +470,7 @@ func handle(_ message: [String: Any]) async {
     case "initialize":
         reply(["protocolVersion": params["protocolVersion"] as? String ?? "2025-06-18","capabilities": ["tools": ["listChanged": false]],
                "serverInfo": ["name": "rekord","version": "1.7.0"],
-               "instructions": "Rekord: Bildschirmaufnahmen mit Auto-Zoom, Kamera und Hintergrund. Typischer Ablauf: list_recordings → get_recording → render_frame zum Ansehen → update_look / edit_zooms / edit_cuts → render_frame zur Kontrolle → export_mp4 oder share_link. recorder startet und stoppt Aufnahmen in der App. Meetings (Calls mit Transkript und Sales-Zusammenfassung): list_meetings → get_meeting. Anleitungen (Schritt-für-Schritt aus Klicks, mit Automatisierungs-Brief): list_guides → get_guide. Zeiten in edit_zooms/edit_cuts sind Quellzeit, in render_frame die Zeit im geschnittenen Video."])
+               "instructions": "Rekord: Bildschirmaufnahmen mit Auto-Zoom, Kamera und Hintergrund. Typischer Ablauf: list_recordings → get_recording → render_frame zum Ansehen → update_look / edit_zooms / edit_cuts → render_frame zur Kontrolle → export_mp4 oder share_link. recorder startet und stoppt Aufnahmen in der App. Meetings (Calls mit Transkript und Sales-Zusammenfassung): list_meetings → get_meeting. Anleitungen (Schritt-für-Schritt aus Klicks, mit Automatisierungs-Brief): list_guides → get_guide. Arbeits-Inventur: inventory_status → list_processes → get_process (Übergabe-Paket, inaktive Entwürfe); get_inventory_day zeigt Blöcke ohne Rohtext. Zeiten in edit_zooms/edit_cuts sind Quellzeit, in render_frame die Zeit im geschnittenen Video."])
     case "notifications/initialized","notifications/cancelled": break
     case "ping": reply([:])
     case "tools/list":
