@@ -30,4 +30,31 @@ export PUBLIC_COMMIT="$EXPECTED_PUBLIC_COMMIT" REKORD_SIGNING_IDENTITY='test-onl
 if "$root/scripts/release.sh" --package "$work/package" > "$work/result" 2>&1; then echo 'FAIL drifted release accepted'; exit 1; fi
 grep -q 'Quellstand passt nicht' "$work/result"
 [[ ! -e "$work/package/Rekord.zip" ]]
-echo 'PASS stale HEAD, community edit and source/build drift blocked without publication'
+# Legacy exported publishers contained their own literal denylist. They must be
+# comparable without exempting an outgoing candidate or any community edits.
+git clone -q --shared "$root" "$work/legacy-dev"
+git -C "$work/legacy-dev" config user.name 'Synthetic Test'
+git -C "$work/legacy-dev" config user.email 'test@example.invalid'
+candidate="$(git -C "$work/legacy-dev" rev-parse HEAD)"
+printf '\n# Historical denylist sentinel: %s%s\n' Host inger >> "$work/legacy-dev/scripts/publish-public.sh"
+git -C "$work/legacy-dev" add scripts/publish-public.sh
+git -C "$work/legacy-dev" commit -qm 'Synthetic historical publisher'
+legacy="$(git -C "$work/legacy-dev" rev-parse HEAD)"
+if "$work/legacy-dev/scripts/export-public.sh" "$legacy" "$work/unsafe-candidate" > "$work/result" 2>&1; then echo 'FAIL outgoing publisher exempted from scan'; exit 1; fi
+grep -q 'Privater Inhalt' "$work/result"
+"$work/legacy-dev/scripts/export-public.sh" "$legacy" "$work/legacy-tree" --reproduce >/dev/null
+git -C "$work/legacy-tree" init -q -b main
+git -C "$work/legacy-tree" config user.name 'Synthetic Test'
+git -C "$work/legacy-tree" config user.email 'test@example.invalid'
+git -C "$work/legacy-tree" add .
+git -C "$work/legacy-tree" commit -qm 'Synthetic legacy public source' -m "Exported from the development repository (${legacy:0:7})."
+git clone -q --bare "$work/legacy-tree" "$work/legacy-remote.git"
+git -C "$work/legacy-dev" checkout -q --detach "$candidate"
+"$work/legacy-dev/scripts/export-public.sh" "$candidate" "$work/legacy-expected" >/dev/null
+export EXPECTED_PUBLIC_COMMIT="$(git -C "$work/legacy-tree" rev-parse HEAD)"
+export GIT_CONFIG_KEY_0="url.file://$work/legacy-remote.git.insteadOf"
+"$work/legacy-dev/scripts/publish-public.sh" > "$work/result" 2>&1
+[[ "$(git --git-dir="$work/legacy-remote.git" rev-parse HEAD)" != "$EXPECTED_PUBLIC_COMMIT" ]]
+git clone -q "$work/legacy-remote.git" "$work/legacy-result"
+diff -qr --exclude=.git "$work/legacy-expected" "$work/legacy-result"
+echo 'PASS stale HEAD, community edit and source/build drift blocked; legacy baseline migrates and outgoing scan stays strict'
