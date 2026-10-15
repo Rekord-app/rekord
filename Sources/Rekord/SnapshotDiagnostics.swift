@@ -6,6 +6,8 @@ import RecorderCore
 /// to PNG for layout review. Draws only this app's content, so no screen-recording permission is involved and
 /// no camera/microphone session is opened. Live layers (player, camera preview) appear empty in snapshots.
 @MainActor enum SnapshotDiagnostics {
+    /// True while snapshots render: views then show the finished state instead of permission hints.
+    static var active = false
     static func run(arguments: [String]) async {
         guard let i = arguments.firstIndex(of: "--ui-snapshot"),arguments.count > i+1 else { return }
         let root = URL(fileURLWithPath: arguments[i+1])
@@ -16,7 +18,9 @@ import RecorderCore
         let meetingsRoot = root.appendingPathComponent("Meetings"), guidesRoot = root.appendingPathComponent("Anleitungen")
         _ = try? SnapshotFixtures.makeMeetings(in: meetingsRoot)
         _ = try? SnapshotFixtures.makeGuides(in: guidesRoot)
+        active = true; defer { active = false }
         let store = EditorStore(meetingsRoot: meetingsRoot,guidesRoot: guidesRoot)
+        store.recent = []   // never show the user's own recordings in a snapshot
         store.withCamera = true; store.withMicrophone = true
         // The library shows copies of the fixture under dated names (today, yesterday, earlier) instead of the user's recordings.
         if let p = arguments.firstIndex(of: "--project"),arguments.count > p+1 {

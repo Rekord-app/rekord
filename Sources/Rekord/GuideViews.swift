@@ -93,7 +93,7 @@ struct GuidesView: View {
                     Spacer()
                     Text("Bildschirm + Mikro").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
                 }
-                if !GuideAccessibility.trusted {
+                if !GuideAccessibility.trusted && !SnapshotDiagnostics.active {
                     Button { GuideAccessibility.requestTrust(); GuideSettingsLink.openAccessibility() } label: {
                         Label("Bedienungshilfen erlauben, sonst fehlen die Namen der Knöpfe",systemImage: "hand.raised").font(StudioFont.caption).foregroundStyle(StudioTheme.warning)
                     }.buttonStyle(.plain)
