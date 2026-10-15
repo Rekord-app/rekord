@@ -24,6 +24,8 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
     private var monitorTask: Task<Void,Never>?
     let shareActivity = ShareActivityStore()
     @Published var showVideoOffers = false
+    @Published var showOfferSetup = false
+    var pendingOfferShare: URL?
     @Published var offerVideo: SharedVideo?
     @Published var showShareSettings = false
     @Published var shareConfigured = !(UserDefaults.standard.string(forKey: "shareServer") ?? "").isEmpty

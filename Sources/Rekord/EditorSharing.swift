@@ -19,12 +19,16 @@ extension EditorStore {
             reportCommand(id: commandID,action: "share",error: "Falsches Projekt geöffnet, Freigabe abgebrochen."); return
         }
         guard shareConfigured else { showShareSettings = true; status = "Aufnahme lokal gesichert · Share-Server einrichten, um einen Link zu erstellen"; return }
+        if forOffer && !OfferTemplate.load().isConfigured {
+            pendingOfferShare = directory; showOfferSetup = true
+            status = "Zuerst Buchungslink und Landingpage einrichten"; return
+        }
         pause(); phase = .exporting; exportProgress = 0; status = "Link wird vorbereitet …"
         shareTask = Task {
             defer { phase = .idle; shareTask = nil }
             do {
                 let client = try shareClient(), limits = try await client.status()
-                if forOffer && !limits.supportsOffers { throw ShareError.message("Server unterstützt Video-Angebote noch nicht. Bitte Share-Server aktualisieren.") }
+                if forOffer && !limits.supportsOfferSetup { throw ShareError.message("Bitte Share-Server aktualisieren: Landingpage-Vorlagen und automatische Statistik fehlen noch.") }
                 let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
                 let fingerprint = try project.fingerprint()
                 let movie = directory.appendingPathComponent("share.mp4"), marker = directory.appendingPathComponent("share-export.txt")

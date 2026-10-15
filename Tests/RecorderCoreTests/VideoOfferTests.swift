@@ -9,6 +9,23 @@ func testVideoOffers() throws {
     XCTAssertEqual(try JSONDecoder().decode(ShareServiceStatus.self,from: new).supportsOffers,true)
     var draft = OfferDraft(videoId: String(repeating: "a",count: 32),title: "Angebot",bookingURL: "https://example.test/termin")
     try draft.validate()
+    XCTAssertEqual(draft.trackingEnabled,true); XCTAssertEqual(draft.notifyOnFirstOpen,true); XCTAssertEqual(draft.trackingMode,"automatic")
+    let suite = "RekordOfferTemplateTests."+UUID().uuidString, defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    XCTAssertEqual(OfferTemplate.load(from: defaults).isConfigured,false)
+    defaults.set("https://example.test/existing",forKey: "offerBookingURL")
+    var template = OfferTemplate.load(from: defaults)
+    XCTAssertEqual(template.bookingURL,"https://example.test/existing"); XCTAssertEqual(template.isConfigured,true)
+    template.bookingURL = " https://example.test/booking "; template.message = "Hallo zusammen"
+    template.landingPage.sender = "Beispiel GmbH"; template.landingPage.accent = "blue"; template.landingPage.buttonTitle = "Gespräch vereinbaren"
+    try template.save(to: defaults)
+    let saved = OfferTemplate.load(from: defaults),prepared = saved.draft(videoID: "video",title: "Titel")
+    XCTAssertEqual(prepared.bookingURL,"https://example.test/booking"); XCTAssertEqual(prepared.message,template.message); XCTAssertEqual(prepared.landingPage,template.landingPage)
+    template.bookingURL = "http://example.test"; XCTAssertThrowsError(try template.save(to: defaults)); XCTAssertEqual(OfferTemplate.load(from: defaults),saved)
+    template = saved; template.landingPage.buttonTitle = " "; XCTAssertThrowsError(try template.save(to: defaults))
+    template = saved; template.landingPage.accent = "url(evil)"; XCTAssertThrowsError(try template.save(to: defaults))
+    XCTAssertEqual(try JSONDecoder().decode(ShareServiceStatus.self,from: new).supportsOfferSetup,false)
+    print("PASS: automatic defaults, legacy booking migration, template snapshots, validated atomic save")
     let retry = try JSONDecoder().decode(OfferDraft.self,from: JSONEncoder().encode(draft))
     XCTAssertEqual(retry,draft)
     for invalid in ["javascript:alert(1)","data:text/html,test","//example.test","http://example.test","https://user:password@example.test"] {
@@ -30,9 +47,9 @@ func testVideoOffers() throws {
 func testOfferSharing(client: ShareClient,video: SharedVideo) async throws {
     guard try await client.status().supportsOffers else { return } // New app still shares with old servers.
     var draft = OfferDraft(videoId: video.id,title: "Synthetisches Angebot",bookingURL: "https://example.test/booking")
-    draft.recipientLabel = "INTERNER TESTEMPFÄNGER"
+    draft.recipientLabel = "INTERNER TESTEMPFÄNGER"; draft.landingPage = OfferLandingPage(); draft.landingPage?.sender = "Beispielagentur"
     let a = try await client.createOffer(draft),retry = try await client.createOffer(draft)
-    XCTAssertEqual(a.id,retry.id)
+    XCTAssertEqual(a.id,retry.id); XCTAssertEqual(a.trackingMode,"automatic"); XCTAssertEqual(a.landingPage?.sender,"Beispielagentur")
     draft.creationRequestId = UUID().uuidString
     let b = try await client.createOffer(draft)
     precondition(a.id != b.id); XCTAssertEqual(a.videoId,b.videoId)
@@ -46,7 +63,7 @@ func testOfferSharing(client: ShareClient,video: SharedVideo) async throws {
     XCTAssertEqual(try await client.offerAnalytics(a.id).summary.openings,0)
     let publicURL = client.baseURL.appendingPathComponent("api/offers/\(a.id)/sessions")
     var req = URLRequest(url: publicURL); req.httpMethod = "POST"
-    req.httpBody = Data(#"{"consent":"playback-v1"}"#.utf8); req.setValue("application/json",forHTTPHeaderField: "Content-Type")
+    req.httpBody = Data(#"{"measurementMode":"automatic-v1"}"#.utf8); req.setValue("application/json",forHTTPHeaderField: "Content-Type")
     var origin = URLComponents(url: client.baseURL,resolvingAgainstBaseURL: false)!; origin.path = ""
     req.setValue(origin.url!.absoluteString,forHTTPHeaderField: "Origin")
     let (_,opened) = try await URLSession.shared.data(for: req)
@@ -60,7 +77,7 @@ func testOfferSharing(client: ShareClient,video: SharedVideo) async throws {
     try await client.revokeOffer(a.id)
     let (_,revoked) = try await URLSession.shared.data(from: a.url); XCTAssertEqual((revoked as! HTTPURLResponse).statusCode,404)
     let remaining = try await client.offers(); precondition(remaining.offers.contains { $0.id == b.id })
-    print("PASS: native offers create/retry, privacy, preview, consent, separate analytics/activity, edit/expiry/reset/revoke")
+    print("PASS: native offers create/retry, privacy, preview, automatic sessions, separate analytics/activity, edit/expiry/reset/revoke")
 }
 
 func testInvalidOfferReceipts(base: URL,token: String) async throws {

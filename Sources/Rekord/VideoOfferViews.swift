@@ -11,10 +11,11 @@ struct VideoOfferForm: View {
     @State private var message = ""
     @State private var saved: VideoOffer?
     @State private var attempted: OfferDraft?
+    @State private var setup = false
     init(videoID: String,title: String,existing: VideoOffer? = nil,expiresAt: String? = nil) {
         self.existing = existing; self.expiresAt = existing?.expiresAt ?? expiresAt
-        var d = OfferDraft(videoId: videoID,title: title,bookingURL: UserDefaults.standard.string(forKey: "offerBookingURL") ?? "")
-        if let existing { d.title = existing.title; d.recipientLabel = existing.recipientLabel; d.message = existing.message; d.bookingURL = existing.bookingURL.absoluteString; d.trackingEnabled = existing.trackingEnabled; d.notifyOnFirstOpen = existing.notifyOnFirstOpen }
+        var d = OfferTemplate.load().draft(videoID: videoID,title: title)
+        if let existing { d.title = existing.title; d.recipientLabel = existing.recipientLabel; d.message = existing.message; d.bookingURL = existing.bookingURL.absoluteString; d.trackingEnabled = existing.trackingEnabled; d.notifyOnFirstOpen = existing.notifyOnFirstOpen; d.trackingMode = existing.trackingMode; d.landingPage = existing.landingPage }
         _draft = State(initialValue: d)
     }
     var body: some View {
@@ -26,14 +27,21 @@ struct VideoOfferForm: View {
                 TextField("Öffentlicher Titel",text: $draft.title)
                 TextField("Nachricht (optional)",text: $draft.message,axis: .vertical).lineLimit(3...5)
                 TextField("Buchungslink",text: $draft.bookingURL).help("Vollständiger HTTPS-Link zu deinem Buchungssystem")
-                Toggle("Wiedergabe-Statistik anfragen",isOn: $draft.trackingEnabled)
-                Toggle("Bei erster gemessener Öffnung benachrichtigen",isOn: $draft.notifyOnFirstOpen).disabled(!draft.trackingEnabled)
+                DisclosureGroup("Landingpage und Statistik anpassen") {
+                    OfferLandingFields(page: Binding(get: { draft.landingPage ?? OfferLandingPage() },set: { draft.landingPage = $0 }))
+                    Toggle("Statistik aktiv",isOn: $draft.trackingEnabled)
+                    Toggle("Bei erster Öffnung benachrichtigen",isOn: $draft.notifyOnFirstOpen).disabled(!draft.trackingEnabled)
+                    Picker("Messung",selection: Binding(get: { draft.trackingMode ?? "consent" },set: { draft.trackingMode = $0 })) {
+                        Text("Automatisch").tag("automatic"); Text("Nach Zustimmung").tag("consent")
+                    }.disabled(!draft.trackingEnabled)
+                }
             }.formStyle(.grouped).scrollContentBackground(.hidden).frame(height: 340).disabled(busy || saved != nil)
             Text("Verfügbar bis: \(expiresAt.map { String($0.prefix(10)) } ?? "dauerhaft")").font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary)
-            Text("Statistik erst nach Zustimmung. Ein weitergeleiteter Link beweist keine Identität. Mitteilungen erscheinen bei laufender App; sonst beim nächsten Start.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary).fixedSize(horizontal: false,vertical: true)
+            Text(draft.trackingEnabled ? (draft.trackingMode == "automatic" ? "Statistik ist automatisch aktiv. Besucher können sie ausschalten. Ein Link bestätigt keine Identität." : "Statistik nach Zustimmung des Besuchers. Ein Link bestätigt keine Identität.") : "Statistik ist für dieses Angebot ausgeschaltet.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary).fixedSize(horizontal: false,vertical: true)
             if !message.isEmpty { Text(message).font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary).textSelection(.enabled) }
             HStack {
                 if busy { ProgressView().controlSize(.small) }
+                if existing == nil && saved == nil { Button("Standardvorlage …") { setup = true }.buttonStyle(.pill).disabled(busy) }
                 Spacer()
                 if let saved {
                     if existing == nil { Button("Weiterer Empfänger") { self.saved = nil; attempted = nil; draft.creationRequestId = UUID().uuidString; draft.recipientLabel = ""; message = "" }.buttonStyle(.pill) }
@@ -43,7 +51,11 @@ struct VideoOfferForm: View {
                     Button(existing == nil ? "Angebotslink erstellen" : "Änderungen speichern") { submit() }.buttonStyle(AccentButtonStyle(height: 34)).disabled(busy)
                 }
             }
-        }.padding(24).frame(width: 580).background(StudioTheme.background)
+        }.padding(24).frame(width: 620).background(StudioTheme.background)
+        .sheet(isPresented: $setup) { OfferSetupView {
+            let value = OfferTemplate.load(); draft.bookingURL = value.bookingURL; draft.message = value.message; draft.landingPage = value.landingPage
+        }.environmentObject(store) }
+        .onAppear { if existing == nil && !OfferTemplate.load().isConfigured { setup = true } }
     }
     private func copyOffer(_ offer: VideoOffer) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(offer.url.absoluteString,forType: .string); message = "Angebotslink kopiert · \(offer.url.absoluteString)" }
     private func submit() {
@@ -73,12 +85,14 @@ struct VideoOffersView: View {
     @Environment(\.dismiss) var dismiss
     @State private var editing: VideoOffer?
     @State private var removing: VideoOffer?
+    @State private var setup = false
     var body: some View {
         VStack(alignment: .leading,spacing: 14) {
             HStack {
                 VStack(alignment: .leading,spacing: 4) { Text("Video-Angebote").font(StudioFont.pageTitle); Text("Aktivität über deine persönlichen Links").font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary) }
                 Spacer()
                 if activity.loading { ProgressView().controlSize(.small) }
+                Button("Buchungslink & Landingpage") { setup = true }.buttonStyle(.pill)
                 Button("Aktualisieren") { Task { await activity.refresh() } }.buttonStyle(.pill)
                 Button("Fertig") { dismiss() }.buttonStyle(.pill).keyboardShortcut(.cancelAction)
             }
@@ -99,12 +113,18 @@ struct VideoOffersView: View {
                 if let offer = activity.offers.first(where: { $0.id == activity.selectedID }) {
                     OfferDetail(offer: offer,editing: { editing = offer },removing: { removing = offer }).id(offer.id)
                 } else {
-                    Text("Wähle ein Angebot aus. Neue Angebote erstellst du beim Teilen oder bei deinen geteilten Aufnahmen.").font(StudioFont.body).foregroundStyle(StudioTheme.textSecondary).frame(maxWidth: .infinity,maxHeight: .infinity)
+                    VStack(spacing: 16) {
+                        Image(systemName: "paperplane").font(.system(size: 38)).foregroundStyle(StudioTheme.accent)
+                        Text("Deine Video-Angebote").font(StudioFont.title)
+                        Text("Hinterlege deinen Buchungslink und die Landingpage. Danach teilst du ein Video als Angebot – die Statistik startet automatisch.").font(StudioFont.body).foregroundStyle(StudioTheme.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 390)
+                        Button("Buchungslink & Landingpage einrichten") { setup = true }.buttonStyle(AccentButtonStyle(height: 36))
+                    }.frame(maxWidth: .infinity,maxHeight: .infinity)
                 }
             }
             Text(activity.message).font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary)
         }.padding(24).frame(width: 940,height: 640).background(StudioTheme.background)
         .task { await activity.refresh(); if activity.selectedID == nil { activity.selectedID = activity.offers.first?.id } }
+        .sheet(isPresented: $setup) { OfferSetupView().environmentObject(store) }
         .sheet(item: $editing) { offer in VideoOfferForm(videoID: offer.videoId,title: offer.title,existing: offer).environmentObject(store) }
         .confirmationDialog("Diesen Angebotslink deaktivieren?",isPresented: Binding(get: { removing != nil },set: { if !$0 { removing = nil } })) {
             Button("Angebotslink deaktivieren",role: .destructive) {

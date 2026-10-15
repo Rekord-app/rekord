@@ -42,6 +42,17 @@ import RecorderCore
     private var started: Date?
     private var timer: Timer?
     private let panel = MeetingPanelController()
+    private lazy var menuBar = MeetingMenuBar(store: self)
+    /// Floating timer/level controller during calls; off = only the red dot in the menu bar.
+    @Published var showController = UserDefaults.standard.object(forKey: "meetingShowController") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showController,forKey: "meetingShowController") }
+    }
+    /// Controller shrunk to a small red dot for the running call (recording continues).
+    @Published var controllerCompact = false
+    func collapseController() { controllerCompact = true; if phase == .recording { panel.show(store: self,compact: true) } }
+    func expandController() { controllerCompact = false; if phase == .recording { panel.show(store: self,compact: false) } }
+    func showControllerPanel() { expandController() }
+    private func updateIndicators() { menuBar.update() }
     let root: URL
 
     static var defaultName: String { NSFullUserName().split(separator: " ").first.map(String.init) ?? "Ich" }
@@ -127,7 +138,8 @@ import RecorderCore
                 try await recorder.start(directory: directory,systemAudio: true,microphoneID: microphoneID())
                 self.recorder = recorder; self.meeting = meeting; self.directory = directory
                 started = Date(); elapsed = 0; phase = .recording; onPhaseChange?()
-                panel.show(store: self)
+                controllerCompact = !showController; panel.show(store: self,compact: controllerCompact)
+                updateIndicators()
                 timer = Timer.scheduledTimer(withTimeInterval: 0.1,repeats: true) { [weak self] _ in
                     MainActor.assumeIsolated {
                         guard let self,let started = self.started,let recorder = self.recorder else { return }
@@ -149,12 +161,19 @@ import RecorderCore
         guard phase == .recording,let recorder,var meeting,let directory else { return }
         if !automatic { ignoreDetectedCall() }
         let quiet = autoStarted; autoStarted = false; callApp = nil
-        phase = .processing; onPhaseChange?(); timer?.invalidate(); timer = nil; panel.hide()
+        phase = .processing; onPhaseChange?(); timer?.invalidate(); timer = nil; panel.hide(); updateIndicators()
         progress = "Aufnahme wird gesichert …"
         Task {
             let stopped = Date()
             do {
                 let result = try await recorder.stop()
+                // A picked-up call shorter than 45 s is almost always a false trigger (mic test, voice note).
+                if quiet, result.duration < 45 {
+                    try? FileManager.default.removeItem(at: directory)
+                    self.recorder = nil; self.meeting = nil; self.directory = nil
+                    phase = .idle; progress = ""; onPhaseChange?(); reload(); revision += 1
+                    return
+                }
                 meeting.duration = result.duration; meeting.microphoneOffset = result.microphoneOffset
                 meeting.systemOffset = result.systemOffset; meeting.hasSystemAudio = result.hasSystemAudio
                 meeting.error = result.warning
@@ -183,7 +202,7 @@ import RecorderCore
     func discard() {
         guard phase == .recording,let recorder,let directory else { return }
         ignoreDetectedCall(); autoStarted = false; callApp = nil
-        timer?.invalidate(); timer = nil; panel.hide(); phase = .processing; onPhaseChange?()
+        timer?.invalidate(); timer = nil; panel.hide(); updateIndicators(); phase = .processing; onPhaseChange?()
         Task {
             await recorder.abort()
             try? FileManager.default.removeItem(at: directory)
@@ -228,12 +247,13 @@ import RecorderCore
             progress = "Zusammenfassung wird erstellt …"; meeting.status = .summarizing; try meeting.save(to: directory); revision += 1
             guard !transcript.sentences.isEmpty else { throw RecorderError.message("Im Ton wurde keine Sprache erkannt. Mikrofon und Systemton prüfen.") }
             let summary = try await MeetingSummarizer.summarize(meeting: meeting,transcript: transcript,apiKey: ClaudeKeychain.read() ?? "",glossary: glossaryTerms)
-            // Automatic call names: fill what was not typed in from the conversation.
-            if meeting.contact.isEmpty, !summary.contact.hasPrefix("nicht angesprochen") { meeting.contact = summary.contact.components(separatedBy: CharacterSet(charactersIn: ",(")).first?.trimmingCharacters(in: .whitespaces) ?? "" }
-            if meeting.company.isEmpty, !summary.company.hasPrefix("nicht angesprochen") { meeting.company = summary.company }
-            if meeting.title.hasPrefix("Meeting ") || meeting.app.map({ meeting.title.hasPrefix($0) }) == true, !meeting.company.isEmpty || !meeting.contact.isEmpty {
-                meeting.title = [meeting.company,meeting.contact].first { !$0.isEmpty } ?? meeting.title
-            }
+            // Automatic call names from the conversation; placeholders („nicht angesprochen“) never become names.
+            if MeetingSummary.isBlank(meeting.contact) || meeting.contact.lowercased().hasPrefix("nicht"), !MeetingSummary.isBlank(summary.contact) {
+                meeting.contact = summary.contact.components(separatedBy: CharacterSet(charactersIn: ",(")).first?.trimmingCharacters(in: .whitespaces) ?? ""
+            } else if meeting.contact.lowercased().hasPrefix("nicht") { meeting.contact = "" }
+            if MeetingSummary.isBlank(meeting.company) || meeting.company.lowercased().hasPrefix("nicht"), !MeetingSummary.isBlank(summary.company) { meeting.company = summary.company }
+            else if meeting.company.lowercased().hasPrefix("nicht") { meeting.company = "" }
+            if let title = summary.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty { meeting.title = title }
             try summary.save(to: directory,meeting: meeting)
             meeting.summarizedWith = MeetingSummarizer.model
             meeting.status = .done; meeting.error = warning
@@ -244,6 +264,18 @@ import RecorderCore
             try? meeting.save(to: directory)
         }
         revision += 1
+    }
+    /// „Frag den Call“: answer from the transcript, kept in `questions.json`.
+    @Published var asking: URL?
+    func ask(_ url: URL,question: String) async {
+        let question = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !question.isEmpty,asking == nil,let meeting = try? Meeting.load(from: url),let transcript = try? Transcript.load(from: url) else { return }
+        asking = url; defer { asking = nil }
+        do {
+            let answer = try await MeetingSummarizer.ask(question: question,meeting: meeting,transcript: transcript,apiKey: ClaudeKeychain.read() ?? "")
+            var items = MeetingQuestion.load(from: url); items.append(MeetingQuestion(question: question,answer: answer))
+            try MeetingQuestion.save(items,to: url); revision += 1
+        } catch { self.error = error.localizedDescription }
     }
     func retry(_ url: URL,retranscribe: Bool = false) {
         guard phase == .idle,let meeting = try? Meeting.load(from: url) else { return }
@@ -270,7 +302,15 @@ enum ClaudeKeychain {
     private static let service = "dev.sapunov.Rekord.claude", account = "api.anthropic.com"
     private static let lock = NSLock()
     nonisolated(unsafe) private static var cache: String?
-    static var hasKey: Bool { !((read()) ?? "").isEmpty }
+    /// Only checks that the item exists. Reading attributes needs no access to the secret, so a new build does
+    /// not show the Keychain password dialog at launch; that dialog appears at most once, on the first summary.
+    static var hasKey: Bool {
+        if let env = ProcessInfo.processInfo.environment["REKORD_CLAUDE_KEY"] { return !env.isEmpty }
+        if let cached = lock.withLock({ cache }) { return !cached.isEmpty }
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,kSecAttrService as String: service,kSecAttrAccount as String: account,
+                                    kSecReturnAttributes as String: true,kSecMatchLimit as String: kSecMatchLimitOne]
+        return SecItemCopyMatching(query as CFDictionary,nil) == errSecSuccess
+    }
     static func read() -> String? {
         // Test builds and diagnostics pass the key in the environment, so a differently signed build never
         // triggers the Keychain password dialog (the item is bound to the exact cdhash). Empty = no key.

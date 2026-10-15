@@ -12,6 +12,16 @@ export function bookingURL(value) {
   if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) fail(400,'Buchungslink muss HTTPS ohne Zugangsdaten verwenden.');
   return url.href;
 }
+function trackingMode(value) {
+  if (!['automatic','consent'].includes(value)) fail(400,'Ungültiger Statistik-Modus.');
+  return value;
+}
+function landingPage(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(k => !['sender','buttonTitle','accent'].includes(k))) fail(400,'Ungültige Landingpage.');
+  const sender = bounded(value.sender ?? '',100,'Absender'), buttonTitle = bounded(value.buttonTitle ?? 'Termin buchen',60,'Button-Text'), accent = value.accent ?? 'red';
+  if (!buttonTitle || !['red','blue','violet','green'].includes(accent)) fail(400,'Ungültiger Button-Text oder Farbe.');
+  return { sender,buttonTitle,accent };
+}
 async function atomicWrite(file,value) {
   const temp = `${file}.${newID()}.tmp`;
   try { await writeFile(temp,JSON.stringify(value),{ mode:0o600,flag:'wx' }); await rename(temp,file); }
@@ -30,8 +40,9 @@ async function readBody(req) {
 }
 export function offerPage(offer,prefix,{ preview = false,enabled = true,privacyURL = '',operatorName = '' } = {}) {
   const tracking = enabled && offer.trackingEnabled && !preview;
-  const choice = tracking ? `<section class="tracking" aria-label="Wiedergabe-Statistik"><p><strong>Wiedergabe-Statistik teilen?</strong><br>Der Absender sieht, wann dieser Link geöffnet und welche Teile abgespielt werden. Du kannst das Video auch ohne Statistik ansehen.</p><div id="tracking-choice"><button id="allow-tracking">Statistik erlauben</button> <button id="deny-tracking">Ohne Statistik ansehen</button></div><button id="withdraw-tracking" hidden>Statistik widerrufen</button><p id="tracking-status" role="status"></p></section>` : '';
-  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(offer.title)} · Rekord</title><link rel="stylesheet" href="${prefix}/assets/player.css"><script defer src="${prefix}/assets/player.js"></script>${tracking ? `<script type="module" src="${prefix}/assets/tracking.js"></script>` : ''}</head><body><header><span class="brand">Rekord</span><span class="private">Nur über diesen Link erreichbar</span></header><main${tracking ? ` data-offer-api="${prefix}/api/offers/${offer.id}"` : ''}><div class="eyebrow">${preview ? 'VORSCHAU · OHNE STATISTIK' : 'DEIN VIDEO-ANGEBOT'}</div><h1>${html(offer.title)}</h1>${offer.message ? `<p class="offer-message">${html(offer.message)}</p>` : ''}<div class="player"><video controls playsinline preload="metadata" src="${prefix}/om/${offer.id}"></video></div><a class="booking" id="book" href="${html(offer.bookingURL)}" target="_blank" rel="noopener noreferrer">Termin buchen <span aria-hidden="true">↗</span></a>${choice}<p id="feedback" role="status"></p></main><footer>${operatorName ? `${html(operatorName)} · ` : ''}Aufgenommen mit Rekord${privacyURL ? ` · <a href="${html(privacyURL)}" target="_blank" rel="noopener noreferrer">Datenschutz</a>` : ''}</footer></body></html>`;
+  const automatic = offer.trackingMode === 'automatic', page = landingPage(offer.landingPage ?? {});
+  const choice = tracking ? `<section class="tracking" aria-label="Wiedergabe-Statistik"><p><strong>${automatic ? 'Wiedergabe-Statistik' : 'Wiedergabe-Statistik teilen?'}</strong><br>${automatic ? 'Der Absender erhält automatisch Öffnungen, abgespielte Bereiche und Klicks auf den Terminbutton. Ohne Cookies oder Wiedererkennung über andere Seiten. Du kannst die Messung ausschalten.' : 'Der Absender sieht, wann dieser Link geöffnet und welche Teile abgespielt werden. Du kannst das Video auch ohne Statistik ansehen.'}</p>${automatic ? '' : '<div id="tracking-choice"><button id="allow-tracking">Statistik erlauben</button> <button id="deny-tracking">Ohne Statistik ansehen</button></div>'}<button id="withdraw-tracking"${automatic ? '' : ' hidden'}>${automatic ? 'Statistik ausschalten' : 'Statistik widerrufen'}</button><p id="tracking-status" role="status"></p><noscript>JavaScript ist aus. Es wird keine Wiedergabe-Statistik erfasst.</noscript></section>` : '';
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(offer.title)} · ${html(page.sender || 'Rekord')}</title><link rel="stylesheet" href="${prefix}/assets/player.css"><script defer src="${prefix}/assets/player.js"></script>${tracking ? `<script type="module" src="${prefix}/assets/tracking.js"></script>` : ''}</head><body class="offer-page accent-${page.accent}"><header><span class="brand">${html(page.sender || 'Rekord')}</span><span class="private">Nur über diesen Link erreichbar</span></header><main${tracking ? ` data-offer-api="${prefix}/api/offers/${offer.id}" data-tracking-mode="${automatic ? 'automatic' : 'consent'}"` : ''}><div class="eyebrow">${preview ? 'VORSCHAU · OHNE STATISTIK' : 'DEIN VIDEO-ANGEBOT'}</div><h1>${html(offer.title)}</h1>${offer.message ? `<p class="offer-message">${html(offer.message)}</p>` : ''}<div class="player"><video controls playsinline preload="metadata" src="${prefix}/om/${offer.id}"></video></div><a class="booking" id="book" href="${html(offer.bookingURL)}" target="_blank" rel="noopener noreferrer">${html(page.buttonTitle)} <span aria-hidden="true">↗</span></a>${choice}<p id="feedback" role="status"></p></main><footer>${operatorName ? `${html(operatorName)} · ` : ''}Aufgenommen mit Rekord${privacyURL ? ` · <a href="${html(privacyURL)}" target="_blank" rel="noopener noreferrer">Datenschutz</a>` : ''}</footer></body></html>`;
 }
 export async function createOfferStore({ storageDirectory,uploadToken,getVideo,origin,prefix,authorize,json,headers,now = Date.now,enabled = true,privacyURL = '',operatorName = '',analyticsOptions = {} }) {
   if (privacyURL) privacyURL = bookingURL(privacyURL);
@@ -44,6 +55,8 @@ export async function createOfferStore({ storageDirectory,uploadToken,getVideo,o
       const o = JSON.parse(await readFile(path.join(directory,name),'utf8'));
       if (o.version !== 1 || o.id !== name.slice(0,-5) || !validID(o.videoId) || !validID(o.trackingRevision) || !Number.isFinite(o.durationSeconds) || o.durationSeconds <= 0 || !Number.isFinite(Date.parse(o.createdAt))) throw Error('schema');
       bounded(o.title,180,'Titel'); bounded(o.message,1000,'Nachricht'); bounded(o.recipientLabel,120,'Empfänger'); bookingURL(o.bookingURL);
+      if (o.trackingMode !== undefined) trackingMode(o.trackingMode);
+      if (o.landingPage !== undefined) landingPage(o.landingPage);
       offers.set(o.id,o);
     } catch { problems++; await mkdir(path.join(directory,'quarantine'),{ recursive:true,mode:0o700 }); await rename(path.join(directory,name),path.join(directory,'quarantine',name)); }
   }
@@ -113,7 +126,7 @@ export async function createOfferStore({ storageDirectory,uploadToken,getVideo,o
   await serial(sweep);
   return {
     health:() => ({ ...analytics.health(),problems }),
-    features:() => enabled ? ['video-offers-v1','video-analytics-v1'] : [],
+    features:() => enabled ? ['video-offers-v1','video-analytics-v1','video-offer-templates-v1','video-analytics-automatic-v1'] : [],
     async sweep() { return serial(sweep); },
     async revokeVideo(videoId) { return serial(async () => { for (const o of offers.values()) if (o.videoId === videoId) await deactivate(o); }); },
     async media(id) { return active(id,false); },
@@ -153,6 +166,8 @@ export async function createOfferStore({ storageDirectory,uploadToken,getVideo,o
           const v = await getVideo(body.videoId);
           if (v.expiresAt && Date.parse(v.expiresAt) <= now()) fail(410,'Video abgelaufen.');
           const input = { videoId:v.id,creationRequestId:body.creationRequestId,recipientLabel:bounded(body.recipientLabel ?? '',120,'Empfänger'),title:bounded(body.title ?? v.title,180,'Titel'),message:bounded(body.message ?? '',1000,'Nachricht'),bookingURL:bookingURL(body.bookingURL),trackingEnabled:flag(body.trackingEnabled,true),notifyOnFirstOpen:flag(body.notifyOnFirstOpen,true),expiresAt:expiry(body.expiresAt === undefined ? v.expiresAt ?? null : body.expiresAt,v.expiresAt) };
+          if (body.trackingMode !== undefined) input.trackingMode = trackingMode(body.trackingMode);
+          if (body.landingPage !== undefined) input.landingPage = landingPage(body.landingPage);
           if (!input.title) fail(400,'Titel fehlt.');
           const fingerprint = JSON.stringify(input);
           const previous = [...offers.values()].find(o => o.creationRequestId === input.creationRequestId);
@@ -165,14 +180,16 @@ export async function createOfferStore({ storageDirectory,uploadToken,getVideo,o
         if (!action && req.method === 'DELETE') { await deactivate(o); res.writeHead(204,headers); return res.end(); }
         if (!action && req.method === 'PATCH') {
           const next = { ...offers.get(id) };
-          const allowed = ['recipientLabel','title','message','bookingURL','trackingEnabled','notifyOnFirstOpen','expiresAt'];
+          const allowed = ['recipientLabel','title','message','bookingURL','trackingEnabled','notifyOnFirstOpen','expiresAt','trackingMode','landingPage'];
           if (Object.keys(body).some(k => !allowed.includes(k))) fail(400,'Unbekanntes Angebotsfeld.');
           for (const [key,max] of [['recipientLabel',120],['title',180],['message',1000]]) if (key in body) next[key] = bounded(body[key],max,key);
           if (!next.title) fail(400,'Titel fehlt.');
+          if ('trackingMode' in body) next.trackingMode = trackingMode(body.trackingMode);
+          if ('landingPage' in body) next.landingPage = landingPage(body.landingPage);
           if ('bookingURL' in body) next.bookingURL = bookingURL(body.bookingURL);
           if ('expiresAt' in body) next.expiresAt = expiry(body.expiresAt,(await getVideo(o.videoId)).expiresAt);
           next.trackingEnabled = flag(body.trackingEnabled,next.trackingEnabled); next.notifyOnFirstOpen = flag(body.notifyOnFirstOpen,next.notifyOnFirstOpen);
-          if (next.trackingEnabled !== o.trackingEnabled) next.trackingRevision = newID();
+          if (next.trackingEnabled !== o.trackingEnabled || next.trackingMode !== o.trackingMode) next.trackingRevision = newID();
           await save(next); return json(res,200,result(await active(id)));
         }
         if (action === 'preview' && req.method === 'POST') return json(res,200,{ url:`${origin()}/o/${id}?preview=${previewToken(id)}` });

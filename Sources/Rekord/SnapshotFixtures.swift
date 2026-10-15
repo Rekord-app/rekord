@@ -45,7 +45,7 @@ enum SnapshotFixtures {
                     TranscriptSentence(speaker: .other,start: 88.6,end: 92.0,text: "Ja, gerne. Was würde das kosten?"),
                 ])
                 try transcript.save(to: directory,meeting: meeting)
-                let summary = MeetingSummary(
+                var summary = MeetingSummary(
                     shortSummary: "\(spec.company) verliert Anfragen, weil nachmittags niemand antwortet. \(spec.contact) will eine automatische Erstantwort mit Terminbuchung, hat aber Sorge, dass es unpersönlich wirkt.",
                     company: spec.company,contact: spec.contact,
                     situation: "Anfragen kommen per Telefon und Mail, werden nur vormittags bearbeitet.",
@@ -59,6 +59,19 @@ enum SnapshotFixtures {
                     actionItems: spec.nextStep.isEmpty ? [] : [MeetingSummary.ActionItem(title: "Beispiel-Antworten im Ton von \(spec.company) vorbereiten",owner: "me",dueDate: spec.date2),
                                                                MeetingSummary.ActionItem(title: "Zugang zum Mail-Postfach klären",owner: "other",dueDate: "")],
                     followUpDraft: "Hallo \(spec.contact.split(separator: " ").first ?? ""),\n\ndanke für das offene Gespräch heute. Ich fasse kurz zusammen: Anfragen bleiben nachmittags liegen, und ihr verliert dadurch Aufträge. Vorschlag: eine automatische Erstantwort in eurem Ton plus Terminbuchung, bei Unklarheiten übernimmt ein Mensch.\n\nIch schicke dir bis \(spec.date2.isEmpty ? "Ende der Woche" : spec.date2) zwei Beispiel-Antworten.\n\nViele Grüße\nNikita")
+                let first = spec.contact.split(separator: " ").first.map(String.init) ?? ""
+                summary.title = spec.interest == 2 ? "Kaffee-Call mit \(first)" : "Erstgespräch \(spec.company.components(separatedBy: " ").prefix(2).joined(separator: " "))"
+                summary.callType = spec.interest == 2 ? "private" : "sales"
+                summary.purpose = spec.interest == 2 ? "Lockerer Austausch über Urlaubspläne und ein mögliches gemeinsames Wochenende." : "\(spec.contact) sucht eine Lösung, damit Anfragen auch nachmittags sofort beantwortet werden."
+                summary.keyTakeaways = [.init(text: "Nachmittags bleiben Anfragen liegen, zwei bis drei Aufträge pro Woche gehen verloren.",timestamp: "00:19"),
+                                        .init(text: "Gewünscht: sofortige Erstantwort mit den wichtigsten Fragen plus Terminbuchung.",timestamp: "00:50"),
+                                        .init(text: "Sorge: Kunden merken, dass niemand am anderen Ende sitzt.",timestamp: "00:58"),
+                                        .init(text: "Interesse am Preis, Beispiel soll gemeinsam durchgegangen werden.",timestamp: "01:28")]
+                summary.topics = [.init(title: "Begrüßung und Aufnahme",timestamp: "00:01",points: ["Einverständnis zur Aufnahme eingeholt"]),
+                                  .init(title: "Heutiger Ablauf der Anfragen",timestamp: "00:09",points: ["Bürokraft nur vormittags","Mails und Anrufe bleiben nachmittags liegen"]),
+                                  .init(title: "Wunschablauf und Bedenken",timestamp: "00:42",points: ["Sofortige Antwort, dann Termin im Kalender","Texte im eigenen Ton, Mensch übernimmt bei Unklarheiten"]),
+                                  .init(title: "Preis und nächster Schritt",timestamp: "01:28",points: ["Frage nach den Kosten","Beispiel an einem echten Fall"])]
+                if spec.interest == 2 { summary.followUpDraft = ""; summary.objections = []; summary.nextStep = .init(action: "",date: "",owner: "unknown") }
                 try summary.save(to: directory,meeting: meeting)
             }
             urls.append(directory)

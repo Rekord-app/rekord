@@ -40,7 +40,7 @@ export async function createAnalytics({ directory,write,now = Date.now,retention
       const source = await readFile(path.join(directory,file),'utf8'), r = JSON.parse(source);
       if (r.version !== 1 || !validID(r.generation) || !Array.isArray(r.sessions) || r.sessions.length > maxSessions || typeof r.firstEmitted !== 'boolean') throw Error('schema');
       for (const s of r.sessions) {
-        if (!validID(s.id) || !/^[a-f0-9]{64}$/.test(s.keyHash) || !Number.isFinite(Date.parse(s.openedAt)) || !Number.isFinite(Date.parse(s.lastActivityAt)) || !validID(s.trackingRevision) || s.consentVersion !== 'playback-v1' || !Number.isSafeInteger(s.lastSequence) || s.lastSequence < 0 || !Number.isSafeInteger(s.ctaClickCount) || s.ctaClickCount < 0 || s.ctaClickCount > 10000 || !Number.isFinite(s.lastPosition) || s.lastPosition < 0 || !Array.isArray(s.playedRanges) || s.playedRanges.length > 256 || !s.playedRanges.every(x => Array.isArray(x) && x.length === 2 && x.every(Number.isFinite) && x[0] >= 0 && x[1] > x[0])) throw Error('session');
+        if (!validID(s.id) || !/^[a-f0-9]{64}$/.test(s.keyHash) || !Number.isFinite(Date.parse(s.openedAt)) || !Number.isFinite(Date.parse(s.lastActivityAt)) || !validID(s.trackingRevision) || (s.consentVersion !== 'playback-v1' && s.measurementMode !== 'automatic-v1') || !Number.isSafeInteger(s.lastSequence) || s.lastSequence < 0 || !Number.isSafeInteger(s.ctaClickCount) || s.ctaClickCount < 0 || s.ctaClickCount > 10000 || !Number.isFinite(s.lastPosition) || s.lastPosition < 0 || !Array.isArray(s.playedRanges) || s.playedRanges.length > 256 || !s.playedRanges.every(x => Array.isArray(x) && x.length === 2 && x.every(Number.isFinite) && x[0] >= 0 && x[1] > x[0])) throw Error('session');
       }
       if (r.firstEvent && (r.firstEvent.offerId !== id || !validID(r.firstEvent.sessionId) || r.firstEvent.id !== `${r.generation}.${id}` || !Number.isFinite(Date.parse(r.firstEvent.openedAt)) || typeof r.firstEvent.notifyEligible !== 'boolean')) throw Error('activity');
       records.set(id,r); sizes.set(id,Buffer.byteLength(source)); damaged.delete(id);
@@ -72,14 +72,15 @@ export async function createAnalytics({ directory,write,now = Date.now,retention
   return {
     async start(offer,body) {
       let r = structuredClone(current(offer.id));
-      if (body.consent !== 'playback-v1' || body.preview) fail(400,'Statistik braucht eine aktive Zustimmung.');
+      const automatic = offer.trackingMode === 'automatic' && body.measurementMode === 'automatic-v1';
+      if ((!automatic && body.consent !== 'playback-v1') || body.preview) fail(400,'Ungültiger Messmodus oder fehlende Zustimmung.');
       if (body.sessionId || body.sessionKey) {
         const s = session(r,body.sessionId,body.sessionKey);
         if (s.trackingRevision !== offer.trackingRevision) fail(410,'Messung wurde zurückgesetzt.');
         return { ...publicSession(s,offer.durationSeconds),sessionKey:body.sessionKey };
       }
       const key = newID(), time = stamp(lastOpening = Math.max(now(),lastOpening+1));
-      const s = { trackingRevision:offer.trackingRevision,id:newID(),keyHash:hash(key),openedAt:time,lastActivityAt:time,consentVersion:'playback-v1',lastSequence:0,playedRanges:[],lastPosition:0,ctaClickCount:0 };
+      const s = { trackingRevision:offer.trackingRevision,id:newID(),keyHash:hash(key),openedAt:time,lastActivityAt:time,...(automatic ? { measurementMode:'automatic-v1' } : { consentVersion:'playback-v1' }),lastSequence:0,playedRanges:[],lastPosition:0,ctaClickCount:0 };
       r.sessions.push(s);
       if (!r.firstEmitted) { r.firstEmitted = true; r.firstEvent = { id:`${r.generation}.${offer.id}`,offerId:offer.id,sessionId:s.id,openedAt:time,notifyEligible:offer.notifyOnFirstOpen }; }
       await save(offer.id,r);

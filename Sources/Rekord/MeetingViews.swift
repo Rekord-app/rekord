@@ -8,7 +8,7 @@ struct MeetingEntry: Identifiable {
     let meeting: Meeting?
     let summary: MeetingSummary?
     var id: URL { url }
-    var title: String { meeting?.displayTitle ?? url.lastPathComponent }
+    var title: String { summary?.title ?? meeting?.displayTitle ?? url.lastPathComponent }
     var date: Date { meeting?.startedAt ?? .distantPast }
     static func load(_ urls: [URL]) -> [MeetingEntry] {
         urls.map { MeetingEntry(url: $0,meeting: try? Meeting.load(from: $0),summary: try? MeetingSummary.load(from: $0)) }
@@ -99,7 +99,6 @@ struct MeetingsView: View {
                     Image(systemName: meetings.autoRecord ? "bolt.fill" : "bolt.slash").font(.system(size: 9,weight: .bold))
                     Text(meetings.autoRecord ? "Calls werden automatisch aufgenommen" : "Automatische Aufnahme aus")
                 }.font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
-                Text("Aufnahme ab macOS 14.2 · Transkript ab macOS 26").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
                 if !meetings.hasAPIKey {
                     Button { meetings.showSettings = true } label: {
                         Label("Ohne Claude-Schlüssel: Audio und lokale Transkription",systemImage: "key").font(StudioFont.caption).foregroundStyle(StudioTheme.warning)
@@ -124,9 +123,9 @@ struct MeetingsView: View {
         let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
         return entries.filter { entry in
             if onlyWarm, (entry.summary?.interest ?? 0) < 4 { return false }
-            if onlyWithNextStep, entry.summary?.nextStep.action.isEmpty ?? true { return false }
+            if onlyWithNextStep, (entry.summary?.nextStep.action.isEmpty ?? true) && (entry.summary?.actionItems.isEmpty ?? true) { return false }
             guard !needle.isEmpty else { return true }
-            let haystack = [entry.title,entry.meeting?.company ?? "",entry.meeting?.contact ?? "",entry.meeting?.app ?? "",entry.summary?.shortSummary ?? ""].joined(separator: " ").lowercased()
+            let haystack = [entry.title,entry.meeting?.company ?? "",entry.meeting?.contact ?? "",entry.meeting?.app ?? "",entry.summary?.shortSummary ?? "",entry.summary?.purpose ?? "",entry.summary?.callTypeLabel ?? ""].joined(separator: " ").lowercased()
             return haystack.contains(needle)
         }
     }
@@ -146,7 +145,11 @@ private struct MeetingRow: View {
                 VStack(alignment: .leading,spacing: 3) {
                     Text(entry.title).font(.system(size: 13,weight: .semibold)).foregroundStyle(StudioTheme.text).lineLimit(1)
                     Text(subtitle).font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary).lineLimit(1)
-                    if let step = entry.summary?.nextStep, !step.action.isEmpty {
+                    if let line = entry.summary.map({ $0.purpose ?? $0.shortSummary }), !line.isEmpty {
+                        Text(line).font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary).lineLimit(2).fixedSize(horizontal: false,vertical: true)
+                    }
+                    if let summary = entry.summary, summary.isSales, !summary.nextStep.action.isEmpty {
+                        let step = summary.nextStep
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.turn.down.right").font(.system(size: 8,weight: .bold))
                             Text([step.action,step.date].filter { !$0.isEmpty }.joined(separator: " · ")).lineLimit(1)
@@ -160,7 +163,9 @@ private struct MeetingRow: View {
         .accessibilityLabel("\(entry.title), \(subtitle)")
     }
     @ViewBuilder private var trailing: some View {
-        if let summary = entry.summary { InterestBadge(value: summary.interest) }
+        if let summary = entry.summary, summary.isSales { InterestBadge(value: summary.interest) }
+        else if let summary = entry.summary { Image(systemName: summary.callType == "private" ? "cup.and.saucer" : summary.callType == "internal" ? "building.2" : "bubble.left.and.bubble.right")
+            .font(.system(size: 11)).foregroundStyle(StudioTheme.textTertiary).help(summary.callTypeLabel) }
         else if let meeting = entry.meeting, meeting.status == .failed { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(StudioTheme.warning).help(meeting.error ?? "Verarbeitung fehlgeschlagen") }
         else if let meeting = entry.meeting, meeting.status != .done { ProgressView().controlSize(.mini).help("Wird verarbeitet") }
     }
@@ -195,172 +200,6 @@ struct InterestBadge: View {
     private var color: Color { value >= 4 ? StudioTheme.success : value == 3 ? StudioTheme.warning : StudioTheme.textSecondary }
 }
 
-struct MeetingDetailView: View {
-    let url: URL
-    @ObservedObject var meetings: MeetingStore
-    @State private var tab = 0
-    @State private var meeting: Meeting?
-    @State private var summary: MeetingSummary?
-    @State private var transcript: Transcript?
-    @State private var copied: String?
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading,spacing: 20) {
-                if let meeting,let error = meeting.error {
-                    Label(error,systemImage: "exclamationmark.triangle").font(StudioFont.body).foregroundStyle(StudioTheme.warning).textSelection(.enabled)
-                        .padding(12).background(StudioTheme.warning.opacity(0.1),in: RoundedRectangle(cornerRadius: StudioTheme.radius,style: .continuous))
-                }
-                if tab == 0 { summaryView } else { transcriptView }
-            }.padding(StudioTheme.gutter).padding(.top,4).frame(maxWidth: 860,alignment: .leading).frame(maxWidth: .infinity,alignment: .leading)
-        }
-        .safeAreaInset(edge: .top,spacing: 0) { header.padding(.horizontal,StudioTheme.gutter).padding(.top,14).padding(.bottom,6) }
-        .task(id: meetings.revision) { load() }
-    }
-    private func load() {
-        meeting = try? Meeting.load(from: url); summary = try? MeetingSummary.load(from: url); transcript = try? Transcript.load(from: url)
-    }
-    /// Pinned: title, meta, the two copy actions and the view switch.
-    private var header: some View {
-        VStack(alignment: .leading,spacing: 10) {
-            HStack(alignment: .top,spacing: 12) {
-                VStack(alignment: .leading,spacing: 3) {
-                    Text(meeting?.displayTitle ?? "Meeting").font(StudioFont.pageTitle).foregroundStyle(StudioTheme.text).lineLimit(1)
-                    if let meeting { Text(subtitle(meeting)).font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary).lineLimit(1) }
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 8) {
-                    if let summary {
-                        Button { copy(summary.followUpDraft,"Follow-up") } label: { Label(copied == "Follow-up" ? "Kopiert" : "Follow-up",systemImage: copied == "Follow-up" ? "checkmark" : "doc.on.doc").lineLimit(1).fixedSize() }.buttonStyle(.pill).help("Follow-up-Entwurf in die Zwischenablage kopieren")
-                        Button { if let meeting { copy(summary.markdown(for: meeting),"Notiz") } } label: { Label(copied == "Notiz" ? "Kopiert" : "Notiz",systemImage: copied == "Notiz" ? "checkmark" : "doc.plaintext").lineLimit(1).fixedSize() }.buttonStyle(.pill).help("Ganze Zusammenfassung als Markdown-Notiz kopieren")
-                    }
-                    Menu {
-                        Button("Zusammenfassung neu erstellen") { meetings.retry(url) }
-                        Button("Neu transkribieren und zusammenfassen") { meetings.retry(url,retranscribe: true) }
-                        Divider()
-                        Button("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                        Button("Löschen …",role: .destructive) { meetings.delete(url) }
-                    } label: { Image(systemName: "ellipsis").font(.system(size: 13,weight: .semibold)).frame(width: 30,height: 30) }
-                        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                        .background(StudioTheme.fill,in: Circle()).disabled(meetings.phase != .idle).accessibilityLabel("Weitere Aktionen")
-                }.layoutPriority(1)
-            }
-            HStack(spacing: 10) {
-                Segmented(options: [(0,"Zusammenfassung"),(1,"Transkript")],selection: $tab).frame(width: 260)
-                Spacer()
-                if let meeting, meeting.status != .done, meeting.status != .failed {
-                    HStack(spacing: 6) { ProgressView().controlSize(.mini); Text(meetings.progress.isEmpty ? "Wird verarbeitet …" : meetings.progress).font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary) }
-                }
-            }
-        }
-        .padding(.horizontal,16).padding(.vertical,12).glassBar()
-    }
-    private func subtitle(_ meeting: Meeting) -> String {
-        var parts = [RelativeDay.long(meeting.startedAt),timestamp(meeting.duration)]
-        if let app = meeting.app { parts.append(app) }
-        if !meeting.hasSystemAudio { parts.append("nur eigene Stimme") }
-        return parts.joined(separator: " · ")
-    }
-
-    // MARK: Summary
-
-    @ViewBuilder private var summaryView: some View {
-        if let summary,let meeting {
-            // Key facts first: what you need before the next call.
-            HStack(alignment: .top,spacing: 10) {
-                VStack(alignment: .leading,spacing: 6) {
-                    HStack(spacing: 5) { Image(systemName: "flame").font(.system(size: 10,weight: .semibold)).foregroundStyle(summary.interest >= 4 ? StudioTheme.success : StudioTheme.textSecondary); Text("Interesse").eyebrow() }
-                    InterestBadge(value: summary.interest,large: true)
-                    Text(summary.interestReason).font(StudioFont.caption).foregroundStyle(StudioTheme.textSecondary).lineLimit(3).fixedSize(horizontal: false,vertical: true)
-                }.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .topLeading).padding(12).background(StudioTheme.fill,in: RoundedRectangle(cornerRadius: StudioTheme.radius,style: .continuous))
-                FactTile(label: "Nächster Schritt",value: summary.nextStep.action.isEmpty ? "nicht vereinbart" : [summary.nextStep.action,summary.nextStep.date,owner(summary.nextStep.owner,meeting)].filter { !$0.isEmpty }.joined(separator: " · "),tone: .accent,icon: "arrow.turn.down.right")
-                FactTile(label: "Budget-Signal",value: summary.budgetSignal,icon: "eurosign.circle")
-                FactTile(label: "Entscheider",value: summary.decisionMaker,icon: "person.crop.circle")
-            }.fixedSize(horizontal: false,vertical: true)
-            Text(summary.shortSummary).font(.system(size: 15)).foregroundStyle(StudioTheme.text).lineSpacing(3).textSelection(.enabled).fixedSize(horizontal: false,vertical: true)
-            section("Gespräch",icon: "bubble.left.and.bubble.right") {
-                VStack(alignment: .leading,spacing: 10) {
-                    field("Firma",summary.company); field("Gesprächspartner",summary.contact); field("Ausgangslage",summary.situation)
-                    field("Größter Schmerz",summary.mainPain); field("Aktueller Prozess",summary.currentProcess)
-                }
-            }
-            section("Einwände",icon: "quote.opening") {
-                if summary.objections.isEmpty { Text("nicht angesprochen").font(StudioFont.body).foregroundStyle(StudioTheme.textTertiary) }
-                ForEach(Array(summary.objections.enumerated()),id: \.offset) { _,objection in
-                    HStack(alignment: .top,spacing: 10) {
-                        RoundedRectangle(cornerRadius: 2).fill(StudioTheme.accent).frame(width: 3)
-                        Text("„\(objection.quote)“").font(.system(size: 13)).italic().foregroundStyle(StudioTheme.text).textSelection(.enabled)
-                        Spacer(minLength: 4)
-                        Text(objection.timestamp).font(StudioFont.caption.monospacedDigit()).foregroundStyle(StudioTheme.textTertiary)
-                    }.fixedSize(horizontal: false,vertical: true)
-                }
-            }
-            if !summary.actionItems.isEmpty {
-                section("Aufgaben",icon: "checklist") {
-                    ForEach(Array(summary.actionItems.enumerated()),id: \.offset) { _,item in
-                        HStack(alignment: .top,spacing: 8) {
-                            Image(systemName: "square").font(.system(size: 12)).foregroundStyle(StudioTheme.textTertiary).padding(.top,2)
-                            Text(item.title).font(StudioFont.body).foregroundStyle(StudioTheme.text)
-                            Spacer(minLength: 4)
-                            Text([owner(item.owner,meeting),item.dueDate].filter { !$0.isEmpty }.joined(separator: " · ")).font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
-                        }
-                    }
-                }
-            }
-            section("Follow-up-Entwurf",icon: "envelope") {
-                Text(summary.followUpDraft).font(StudioFont.body).foregroundStyle(StudioTheme.text).lineSpacing(2).textSelection(.enabled)
-                    .frame(maxWidth: .infinity,alignment: .leading).studioInset(padding: 14)
-            }
-            Text("Erstellt von \(meeting.summarizedWith ?? MeetingSummarizer.model) aus dem Transkript\(meeting.processingSeconds.map { ", fertig \(Int($0)) s nach dem Auflegen" } ?? ""). Zahlen und Namen vor dem Versand prüfen.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
-        } else if let meeting,meeting.status == .failed {
-            EmptyState(icon: "exclamationmark.triangle",title: "Keine Zusammenfassung",text: "Die Verarbeitung ist fehlgeschlagen. Über ⋯ kannst du sie erneut starten.") {
-                Button("Zusammenfassung neu erstellen") { meetings.retry(url) }.buttonStyle(.pill).disabled(meetings.phase != .idle)
-            }
-        } else {
-            HStack(spacing: 10) { ProgressView().controlSize(.small); Text(meetings.progress.isEmpty ? "Wird verarbeitet …" : meetings.progress).font(StudioFont.body).foregroundStyle(StudioTheme.textSecondary) }
-        }
-    }
-
-    // MARK: Transcript
-
-    @ViewBuilder private var transcriptView: some View {
-        if let transcript,let meeting {
-            VStack(alignment: .leading,spacing: 16) {
-                ForEach(Array(transcript.turns.enumerated()),id: \.offset) { _,turn in
-                    HStack(alignment: .top,spacing: 12) {
-                        VStack(alignment: .trailing,spacing: 2) {
-                            Text(meeting.label(turn.speaker)).font(.system(size: 11,weight: .semibold)).foregroundStyle(turn.speaker == .me ? StudioTheme.accent : StudioTheme.info).lineLimit(1)
-                            Text(timestamp(turn.start)).font(.system(size: 10,design: .monospaced)).foregroundStyle(StudioTheme.textTertiary)
-                        }.frame(width: 88,alignment: .trailing)
-                        Text(turn.text).font(StudioFont.body).foregroundStyle(StudioTheme.text).lineSpacing(2).textSelection(.enabled).fixedSize(horizontal: false,vertical: true)
-                    }
-                }
-            }
-            if transcript.sentences.isEmpty { Text("Keine Sprache erkannt.").font(StudioFont.body).foregroundStyle(StudioTheme.textTertiary) }
-            Text("Maschinell erstellt (\(transcript.engine)). Namen und Zahlen vor Verwendung prüfen.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
-        } else { Text("Noch kein Transkript.").font(StudioFont.body).foregroundStyle(StudioTheme.textTertiary) }
-    }
-    private func section<Content: View>(_ title: String,icon: String,@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading,spacing: 10) {
-            HStack(spacing: 6) { Image(systemName: icon).font(.system(size: 10,weight: .semibold)).foregroundStyle(StudioTheme.textTertiary); Text(title).eyebrow() }
-            content()
-        }.studioCard(padding: 16)
-    }
-    private func field(_ label: String,_ value: String) -> some View {
-        HStack(alignment: .top,spacing: 12) {
-            Text(label).font(StudioFont.captionStrong).foregroundStyle(StudioTheme.textSecondary).frame(width: 130,alignment: .leading)
-            Text(value).font(StudioFont.body).foregroundStyle(value.hasPrefix("nicht ") ? StudioTheme.textTertiary : StudioTheme.text).textSelection(.enabled).fixedSize(horizontal: false,vertical: true)
-        }
-    }
-    private func owner(_ value: String,_ meeting: Meeting) -> String {
-        switch value { case "me": meeting.ownName; case "other": meeting.otherName; case "both": "beide"; default: "" }
-    }
-    private func copy(_ text: String,_ what: String) {
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text,forType: .string)
-        withAnimation(.snappy(duration: 0.2)) { copied = what }
-        Task { try? await Task.sleep(nanoseconds: 1_600_000_000); withAnimation { if copied == what { copied = nil } } }
-    }
-}
-
 /// All settings in one sheet: meetings, Claude, sharing. Opened from the sidebar gear and the Meetings header.
 struct SettingsSheet: View {
     @ObservedObject var meetings: MeetingStore
@@ -382,6 +221,7 @@ struct SettingsSheet: View {
                     TextField("Dein Name im Transkript",text: $meetings.ownName)
                     TextField("Begriffe, die oft fallen (Komma-getrennt)",text: $meetings.glossary,axis: .vertical).lineLimit(2...4)
                     Toggle("Calls automatisch aufnehmen (Meet, Zoom, Teams, FaceTime, Slack …)",isOn: Binding(get: { meetings.autoRecord },set: { meetings.setAutoRecord($0) }))
+                    Toggle("Zeit und Pegel während Meetings anzeigen (sonst nur ein kleiner roter Punkt)",isOn: $meetings.showController)
                     Toggle("Rekord beim Anmelden starten",isOn: Binding(get: { meetings.launchAtLogin },set: { meetings.setLaunchAtLogin($0) }))
                 }
                 Section {
@@ -409,17 +249,23 @@ struct SettingsSheet: View {
 /// Floating timer, level meters and Stop while a meeting records (never part of any screen recording).
 @MainActor final class MeetingPanelController {
     private var panel: NSPanel?
-    func show(store: MeetingStore) {
+    private static let full = CGSize(width: 280,height: 118), dot = CGSize(width: 34,height: 34)
+    /// `compact`: only a small red dot (no timer, no meters); click it to expand. Keeps the top-right corner.
+    func show(store: MeetingStore,compact: Bool) {
+        let size = compact ? Self.dot : Self.full
         if panel == nil {
-            let next = NSPanel(contentRect: CGRect(x: 0,y: 0,width: 250,height: 118),styleMask: [.borderless,.nonactivatingPanel],backing: .buffered,defer: false)
+            let next = NSPanel(contentRect: CGRect(origin: .zero,size: size),styleMask: [.borderless,.nonactivatingPanel],backing: .buffered,defer: false)
             next.isReleasedWhenClosed = false; next.isOpaque = false; next.backgroundColor = .clear
             next.level = .floating; next.hidesOnDeactivate = false; next.hasShadow = true; next.isMovableByWindowBackground = true
             next.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary]; next.sharingType = .none
             next.setAccessibilityLabel("Meeting-Controller")
             next.contentView = NSHostingView(rootView: MeetingControllerView(meetings: store))
             let area = NSScreen.main?.visibleFrame ?? CGRect(x: 0,y: 0,width: 1440,height: 900)
-            next.setFrameOrigin(CGPoint(x: area.maxX-274,y: area.maxY-142))
+            next.setFrameOrigin(CGPoint(x: area.maxX-24-size.width,y: area.maxY-24-size.height))
             panel = next
+        } else if let panel, panel.frame.size != size {
+            let frame = panel.frame
+            panel.setFrame(CGRect(x: frame.maxX-size.width,y: frame.maxY-size.height,width: size.width,height: size.height),display: true,animate: true)
         }
         panel?.orderFrontRegardless()
     }
@@ -428,13 +274,27 @@ struct SettingsSheet: View {
 
 struct MeetingControllerView: View {
     @ObservedObject var meetings: MeetingStore
+    @State private var pulse = false
     var body: some View {
+        if meetings.controllerCompact { dot } else { full }
+    }
+    /// Unobtrusive: a small pulsing red dot, nothing else. Click to show the full controller.
+    private var dot: some View {
+        Button { meetings.expandController() } label: {
+            Circle().fill(StudioTheme.accent).frame(width: 12,height: 12).scaleEffect(pulse ? 1 : 0.75).opacity(pulse ? 1 : 0.6)
+                .frame(width: 34,height: 34).background(Color.black.opacity(0.55),in: Circle()).contentShape(Circle())
+        }.buttonStyle(.plain).help("Rekord nimmt auf · klicken zum Einblenden").accessibilityLabel("Meeting-Aufnahme läuft, Controller einblenden")
+        .onAppear { withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { pulse = true } }
+    }
+    private var full: some View {
         VStack(spacing: 10) {
             HStack(spacing: 8) {
                 Circle().fill(StudioTheme.accent).frame(width: 7,height: 7).shadow(color: StudioTheme.accent.opacity(0.8),radius: 4)
                 Text(recordingClock(meetings.elapsed)).font(.system(size: 20,weight: .semibold,design: .rounded)).monospacedDigit().foregroundStyle(.white)
                 Spacer()
                 Text(meetings.callApp ?? "Meeting").font(.system(size: 11,weight: .semibold)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+                Button { meetings.collapseController() } label: { Image(systemName: "eye.slash").font(.system(size: 11,weight: .medium)).foregroundStyle(.white.opacity(0.75)).frame(width: 24,height: 24).background(Color.white.opacity(0.1),in: Circle()) }
+                    .buttonStyle(.plain).help("Ausblenden: nur noch ein kleiner roter Punkt, Aufnahme läuft weiter").accessibilityLabel("Controller ausblenden")
                 Button { meetings.discard() } label: { Image(systemName: "trash").font(.system(size: 11,weight: .medium)).foregroundStyle(.white.opacity(0.75)).frame(width: 24,height: 24).background(Color.white.opacity(0.1),in: Circle()) }
                     .buttonStyle(.plain).help("Verwerfen: nichts speichern und diesen Call nicht mehr aufnehmen").accessibilityLabel("Aufnahme verwerfen")
             }

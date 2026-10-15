@@ -135,7 +135,7 @@ Vor dem Produktivupdate vollständiges Storage-Backup anlegen und die Wiederhers
 
 
 
-## Video-Angebote und zustimmungsabhängige Statistik
+## Video-Angebote, Landingpage-Vorlagen und Statistik
 
 Bedienung und Messdefinitionen: [Video-Angebote](../docs/VIDEO-ANGEBOTE.md). Ein Video kann viele getrennte Angebotslinks haben. Die interne Empfängerbeschriftung erscheint nie im öffentlichen HTML. `durationSeconds` kommt aus dem MP4; alte Videos werden bei erster Angebotserstellung ergänzt.
 
@@ -147,13 +147,19 @@ Bedienung und Messdefinitionen: [Video-Angebote](../docs/VIDEO-ANGEBOTE.md). Ein
 | GET / DELETE | `/api/offers/:id/analytics` | Bearer; Zusammenfassung + Sessions / neue leere Messgeneration |
 | GET | `/api/offer-activity` | Bearer; erste gemessene Öffnungen, dauerhaft innerhalb der Aufbewahrungsfrist |
 | GET / HEAD | `/o/:id`, `/om/:id` | Angebotsseite / MP4 mit Byte-Ranges; keine Messung durch Abruf |
-| POST | `/api/offers/:id/sessions` | Same-origin; aktive Zustimmung `consent: "playback-v1"`; Rückgabe `id` und kurzlebiger `sessionKey` |
+| POST | `/api/offers/:id/sessions` | Same-origin; je nach Angebotsmodus `measurementMode: "automatic-v1"` oder aktive Zustimmung `consent: "playback-v1"`; Rückgabe `id` und kurzlebiger `sessionKey` |
 | POST | `/api/offers/:id/events` | Same-origin + Session-ID/Schlüssel; kumulativer Snapshot |
 | DELETE | `/api/offers/:id/sessions/:sessionId` | Same-origin + `sessionKey`; Zuschauer widerruft und löscht seine Session |
 
 POST für Angebote: `videoId`, `creationRequestId` (16–80 ASCII-Buchstaben/Ziffern, `_`/`-`), `title` (180), `recipientLabel` (120), `message` (1.000), `bookingURL` (2.048, HTTPS ohne Zugangsdaten), `trackingEnabled`, `notifyOnFirstOpen`, optional `expiresAt` (ISO-Datum/null, höchstens Video-Laufzeit). Dieselbe Request-ID mit unverändertem Inhalt gibt denselben Link zurück; abweichender Inhalt ergibt 409. PATCH akzeptiert die editierbaren Felder ohne Video-/Request-ID.
 
-Snapshots enthalten `sessionId`, `sessionKey`, strikt positive `sequence`, `playedRanges: [[start,end], …]`, `lastPosition`, `ctaClickCount`. Der Server vereinigt Intervalle und berechnet Anteile selbst. Überholte Sequenzen ändern nichts. Eine Session läuft nach 30 Minuten Inaktivität ab. Resume sendet deren ID/Schlüssel erneut an `/sessions`. Tracking aus-/einschalten invalidiert alte Sessions. Vor Zustimmung keine Sammlung und keine Requests; kein Nachtragen zuvor abgespielter Abschnitte.
+Neue optionale Angebotsfelder: `trackingMode` (`automatic` oder `consent`) und `landingPage` mit `sender` (bis 100 Zeichen), `buttonTitle` (1–60 Zeichen) und `accent` (`red`, `blue`, `violet`, `green`). Fehlender Modus bleibt für ältere Clients und Angebote zustimmungsabhängig. Fehlende Gestaltung nutzt die bisherige Rekord-Seite. Die Server-Capabilities `video-offer-templates-v1` und `video-analytics-automatic-v1` verhindern stilles Ignorieren durch alte Server. Ein Moduswechsel invalidiert alte Mess-Sessions.
+
+Vor dem Update den gesamten Speicher sichern. Nach der ersten automatischen Session nur auf eine Version zurückrollen, die `automatic-v1` lesen kann; ältere Server würden solche Analytics-Dateien als beschädigt isolieren.
+
+Automatische Sessions tragen `measurementMode: "automatic-v1"`, keine fingierte `consentVersion`. Der Browser speichert ihre Kennung nicht; Neuladen erzeugt eine neue Session. Ausschalten löscht die aktuelle Session und merkt nur die Ausschaltpräferenz im Tab. GPC/DNT unterbinden den Start. Signierte Vorschauen messen in beiden Modi nicht. Das HTML/CSS bleibt ohne externe Ressourcen und ohne Inline-Styles unter der bisherigen CSP.
+
+Snapshots enthalten `sessionId`, `sessionKey`, strikt positive `sequence`, `playedRanges: [[start,end], …]`, `lastPosition`, `ctaClickCount`. Der Server vereinigt Intervalle und berechnet Anteile selbst. Überholte Sequenzen ändern nichts. Eine Session läuft nach 30 Minuten Inaktivität ab. Resume sendet deren ID/Schlüssel erneut an `/sessions`. Tracking aus-/einschalten invalidiert alte Sessions. Im Modus `consent` vor Zustimmung keine Sammlung und keine Requests; kein Nachtragen zuvor abgespielter Abschnitte.
 
 Listen liefern 50 Einträge, `nextCursor`, `hasMore`; der Cursor wird unverändert als `?after=` übergeben. Statistik ist pro Session; die Zusammenfassung verwendet den besten einzelnen Anteil. Aktivität und Session werden im selben atomaren JSON-Commit geschrieben. Ein begrenzter globaler Writer schützt auch instanzweite Kontingente. Beschädigte Daten werden privat isoliert, als `damaged` angezeigt und lassen die Medienauslieferung weiterlaufen. `DELETE analytics` behebt diesen Zustand. `GET /api/status` liefert `offerAnalytics` mit Speicher-/Session-/Fehlerzahlen, ohne Messpayloads.
 
@@ -169,7 +175,7 @@ Ein Minuten-Sweeper bereinigt Ablauf und Aufbewahrung; Zugriffe prüfen Gültigk
 
 ### Zusätzliche Abnahme
 
-`npm test` enthält Angebots-, Analytics- und Player-Meter-Regressionen einschließlich 20 gleichzeitiger Sessions. Der native Share-Integrationstest prüft beide Linktypen. Optional prüft `test/browser-acceptance.mjs` mit installiertem Playwright und einem synthetischen 120-Sekunden-MP4 Chrome/WebKit, Zustimmung, Seek/Wiederholung, 390-px-Layout, Tastatur und Nutzung ohne JavaScript. Playwright ist keine Runtime-Abhängigkeit.
+`npm test` enthält Angebots-, Analytics- und Player-Meter-Regressionen einschließlich 20 gleichzeitiger Sessions. Der native Share-Integrationstest prüft beide Linktypen. Optional prüft `test/browser-acceptance.mjs` mit installiertem Playwright und einem synthetischen 120-Sekunden-MP4 Chrome/WebKit, Zustimmung, Seek/Wiederholung, 390-px-Layout, Tastatur und Nutzung ohne JavaScript. `test/automatic-acceptance.mjs` prüft zusätzlich automatischen Start, Vorlagen, Cookies/Speicher, Opt-out einschließlich laufender Startanfragen, Neuladen, GPC und Vorschauen. Playwright ist keine Runtime-Abhängigkeit.
 
 ```sh
 node test/browser-acceptance.mjs /path/to/synthetic-120.mp4 /tmp/offer-browser-check

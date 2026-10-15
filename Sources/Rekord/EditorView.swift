@@ -37,6 +37,10 @@ struct EditorView: View {
         .background(StudioTheme.background).tint(StudioTheme.accent)
         .background(WindowAccessor { window in if store.mainWindow !== window { store.mainWindow = window } })
         .sheet(isPresented: $store.showShareSettings) { ShareSettingsView().environmentObject(store) }
+        .sheet(isPresented: $store.showOfferSetup,onDismiss: {
+            let expected = store.pendingOfferShare; store.pendingOfferShare = nil
+            if let expected,OfferTemplate.load().isConfigured { store.share(expected: expected,forOffer: true) }
+        }) { OfferSetupView().environmentObject(store) }
         .sheet(isPresented: $store.showVideoOffers) { VideoOffersView(activity: store.shareActivity).environmentObject(store) }
         .sheet(item: $store.offerVideo) { video in VideoOfferForm(videoID: video.id,title: video.title,expiresAt: video.expiresAt).environmentObject(store) }
         .sheet(isPresented: $audiencePresented) { AudienceView().environmentObject(store) }

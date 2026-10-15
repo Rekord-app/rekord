@@ -11,7 +11,7 @@ struct ShareSettingsView: View {
     @State private var message = ""
     @State private var testing = false
     @State private var library = false
-    @AppStorage("offerBookingURL") private var bookingURL = ""
+    @State private var offerSetup = false
     @State private var offers = false
     var body: some View {
         VStack(alignment: .leading,spacing: 16) {
@@ -53,7 +53,7 @@ struct ShareSettingsView: View {
             Text("Der Schlüssel liegt nur im macOS-Schlüsselbund. Wer einen Videolink hat, kann die Aufnahme ansehen; Links lassen sich jederzeit deaktivieren.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary).fixedSize(horizontal: false,vertical: true)
             VStack(alignment: .leading,spacing: 10) {
                 Text("Video-Angebote").eyebrow()
-                TextField("Standard-Buchungslink (https://…)",text: $bookingURL).textFieldStyle(.roundedBorder)
+                Button("Buchungslink & Landingpage einrichten") { offerSetup = true }.buttonStyle(.pill)
                 Text("Wird in neue Angebote übernommen. Vorhandene Links behalten ihr Buchungsziel.").font(StudioFont.caption).foregroundStyle(StudioTheme.textTertiary)
                 OfferNotificationToggle(activity: store.shareActivity)
                 Button("Video-Angebote verwalten") { offers = true }.buttonStyle(.pill).disabled(!store.shareConfigured)
@@ -66,6 +66,7 @@ struct ShareSettingsView: View {
                 }.studioInset()
             }
         }.padding(24).frame(width: 540).background(StudioTheme.background)
+        .sheet(isPresented: $offerSetup) { OfferSetupView().environmentObject(store) }
         .sheet(isPresented: $offers) { VideoOffersView(activity: store.shareActivity).environmentObject(store) }
         .sheet(isPresented: $library) { ShareLibraryView().environmentObject(store) }
         .onAppear { token = (try? ShareKeychain.read(server: address)) ?? "" }

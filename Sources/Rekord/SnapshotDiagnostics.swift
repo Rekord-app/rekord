@@ -53,12 +53,14 @@ import RecorderCore
             await snapshot(EditorView().environmentObject(store),size: CGSize(width: 1320,height: 860),to: root.appendingPathComponent("5-meetings.png"))
             store.meetings.selected = store.meetings.meetings.first { (try? MeetingSummary.load(from: $0)) != nil }
             await snapshot(EditorView().environmentObject(store),size: CGSize(width: 1320,height: 860),to: root.appendingPathComponent("5b-meeting-detail.png"))
+            store.meetings.selected = store.meetings.meetings.first { (try? MeetingSummary.load(from: $0))?.callType == "private" }
+            await snapshot(EditorView().environmentObject(store),size: CGSize(width: 1320,height: 860),to: root.appendingPathComponent("5e-meeting-private.png"))
             await snapshot(SettingsSheet(meetings: store.meetings).environmentObject(store),size: CGSize(width: 580,height: 680),to: root.appendingPathComponent("5c-meeting-settings.png"))
             await snapshot(Form { StorageSettingsSection(); Section("Teilen") { ShareExpiryPicker() } }.formStyle(.grouped).scrollContentBackground(.hidden)
                         .frame(width: 580,height: 560).background(StudioTheme.background).environmentObject(store).preferredColorScheme(.dark),
                      size: CGSize(width: 580,height: 560),to: root.appendingPathComponent("5e-storage-settings.png"))
             store.meetings.elapsed = 754; store.meetings.microphoneLevel = 0.55; store.meetings.systemLevel = 0.3; store.meetings.callApp = "Google Meet"
-            await snapshot(MeetingControllerView(meetings: store.meetings),size: CGSize(width: 250,height: 118),to: root.appendingPathComponent("5d-meeting-controller.png"))
+            await snapshot(MeetingControllerView(meetings: store.meetings),size: CGSize(width: 280,height: 118),to: root.appendingPathComponent("5d-meeting-controller.png"))
             store.showGuides()
             await snapshot(EditorView().environmentObject(store),size: CGSize(width: 1320,height: 860),to: root.appendingPathComponent("6-guides.png"))
             store.guides.selected = store.guides.guides.first

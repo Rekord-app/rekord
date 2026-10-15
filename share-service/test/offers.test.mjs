@@ -74,3 +74,34 @@ test('legacy guide revocation also invalidates linked offer sessions across rest
     await f.stop(); await f.start(); assert.equal((await f.call('GET',`/o/${o.id}`)).status,404);
   } finally { await f.close(); }
 });
+
+test('landing template snapshots and automatic measurements survive restart without fabricated consent',async () => {
+  const f = await fixture();
+  try {
+    const v = await f.upload(),legacy = await f.offer(v);
+    const input = { trackingMode:'automatic',landingPage:{ sender:'Acme <script>',buttonTitle:'Gespräch & Termin',accent:'blue' } };
+    const o = await f.offer(v,input),url = `/api/offers/${o.id}`;
+    assert.equal(o.trackingMode,'automatic'); assert.deepEqual(o.landingPage,input.landingPage);
+    const page = await (await f.call('GET',`/o/${o.id}`)).text();
+    assert.match(page,/accent-blue/); assert.match(page,/Acme &lt;script&gt;/); assert.match(page,/Gespräch &amp; Termin/);
+    assert.match(page,/data-tracking-mode="automatic"/); assert.doesNotMatch(page,/allow-tracking|tracking-choice/);
+    for (const body of [{ landingPage:{ accent:'red" onclick="evil' } },{ landingPage:{ buttonTitle:' ' } },{ landingPage:{ sender:'x'.repeat(101) } },{ landingPage:null },{ trackingMode:'secret' }]) {
+      assert.equal((await f.call('PATCH',url,body)).status,400);
+    }
+    const mode = { measurementMode:'automatic-v1' };
+    assert.equal((await f.call('POST',`/api/offers/${legacy.id}/sessions`,mode,{ owner:false })).status,400);
+    assert.equal((await f.call('POST',url+'/sessions',{ ...mode,preview:true },{ owner:false })).status,400);
+    const response = await f.call('POST',url+'/sessions',mode,{ owner:false }); assert.equal(response.status,201); const session = await response.json();
+    const record = JSON.parse(await readFile(path.join(f.directory,'analytics',`${o.id}.json`),'utf8'));
+    assert.equal(record.sessions[0].measurementMode,'automatic-v1'); assert.equal(record.sessions[0].consentVersion,undefined);
+    await f.stop(); await f.start();
+    const list = await (await f.call('GET','/api/offers')).json();
+    assert.deepEqual(list.offers.find(x => x.id === o.id).landingPage,input.landingPage);
+    assert.equal((await (await f.call('GET',url+'/analytics')).json()).summary.openings,1);
+    const preview = await (await f.call('POST',url+'/preview')).json();
+    const previewHTML = await (await fetch(preview.url)).text(); assert.doesNotMatch(previewHTML,/tracking.js|data-offer-api/);
+    await f.call('PATCH',url,{ trackingMode:'consent' }); assert.equal((await f.event(o,session)).status,410);
+    const stopped = await f.call('DELETE',url+`/sessions/${session.id}`,{ sessionKey:session.sessionKey },{ owner:false }); assert.equal(stopped.status,204);
+    assert.equal((await (await f.call('GET',url+'/analytics')).json()).summary.openings,0);
+  } finally { await f.close(); }
+});

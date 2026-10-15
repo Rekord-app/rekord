@@ -26,7 +26,7 @@ import UserNotifications
             store.shareActivity.start(allowDiagnostic: true)
             defer { store.shareActivity.stop() }
             var request = URLRequest(url: c.baseURL.appendingPathComponent("api/offers/\(offer.id)/sessions")); request.httpMethod = "POST"
-            request.setValue("application/json",forHTTPHeaderField: "Content-Type"); request.setValue(c.baseURL.absoluteString,forHTTPHeaderField: "Origin"); request.httpBody = Data(#"{"consent":"playback-v1"}"#.utf8)
+            request.setValue("application/json",forHTTPHeaderField: "Content-Type"); request.setValue(c.baseURL.absoluteString,forHTTPHeaderField: "Origin"); request.httpBody = Data(#"{"measurementMode":"automatic-v1"}"#.utf8)
             let (_,response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 201 else { throw ShareError.message("Synthetic session failed.") }
             let began = Date()
@@ -53,9 +53,11 @@ import UserNotifications
             guard !store.showVideoOffers,store.workspace == .meetings else { throw ShareError.message("Meeting navigation regressed.") }
             log.append("PASS offer navigation before/after attachment and meeting routing")
             SnapshotDiagnostics.active = true; defer { SnapshotDiagnostics.active = false }
-            await SnapshotDiagnostics.snapshot(VideoOfferForm(videoID: video.id,title: offer.title,existing: offer).environmentObject(store),size: CGSize(width: 580,height: 640),to: root.appendingPathComponent("native-form.png"))
+            await SnapshotDiagnostics.snapshot(VideoOfferForm(videoID: video.id,title: offer.title,existing: offer).environmentObject(store),size: CGSize(width: 620,height: 640),to: root.appendingPathComponent("native-form.png"))
             await SnapshotDiagnostics.snapshot(VideoOffersView(activity: store.shareActivity).environmentObject(store),size: CGSize(width: 940,height: 640),to: root.appendingPathComponent("native-offers.png"))
-            log.append("PASS native form and offer detail snapshots")
+            var template = OfferTemplate(); template.bookingURL = "https://example.test/termin"; template.landingPage.sender = "Beispielagentur"; template.landingPage.accent = "blue"; template.message = "Lass uns über dein Projekt sprechen."
+            await SnapshotDiagnostics.snapshot(OfferSetupView(template: template).environmentObject(store),size: CGSize(width: 850,height: 610),to: root.appendingPathComponent("native-setup.png"))
+            log.append("PASS native setup, form and offer detail snapshots")
             try await api.revoke(video.id)
         } catch { log.append("FAIL \(error.localizedDescription)") }
         try? log.joined(separator: "\n").write(to: root.appendingPathComponent("native-report.txt"),atomically: true,encoding: .utf8)

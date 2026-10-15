@@ -3,6 +3,26 @@
 Alle Änderungen an Rekord (bis 1.2.0: „Focus Recorder“). Updaten mit `./scripts/update.sh` (siehe [ANLEITUNG.md](ANLEITUNG.md)).
 Neue Einträge kommen oben dazu; die Version steht in `Resources/Info.plist`.
 
+## 1.12.0 – 15.10.2026 · Angebote einmal einrichten
+
+- **Buchungslink & Landingpage** direkt bei Video-Angeboten einrichten: Standardlink, Absender, Farbe, Button-Text und Nachricht mit Vorschau. Ohne gültigen Link startet zuerst die Einrichtung, danach der Upload.
+- Neue Angebote übernehmen die Vorlage. Bereits verschickte Links behalten ihre Inhalte; einzelne Seiten lassen sich weiter bearbeiten.
+- **Statistik automatisch aktiv:** neue Angebotsseiten erfassen Öffnungen, abgespielte Abschnitte und Button-Klicks ohne vorheriges Ankreuzen. Sichtbarer Hinweis und Ausschaltoption, keine Cookies oder dauerhafte Zuschauer-ID. Neuladen zählt als neue Session; Browser-Datenschutzsignale werden berücksichtigt.
+- Alte Angebote behalten ihre Zustimmungseinstellung. Vorschauen bleiben ohne Messung. Zuerst den Share-Server aktualisieren; ältere Server werden vor dem Upload erkannt.
+
+## 1.11.0 – 15.10.2026 · Meeting-Rückblick
+
+- **Player im Meeting:** beide Spuren zusammen abspielen, ±15 s, Tempo 1× bis 2×. Eine Sprecher-Zeitleiste zeigt, wer wann redet; Klicken oder Ziehen springt an die Stelle. Dazu der Redeanteil (z. B. du 44 %, Gegenüber 56 %).
+- **Zusammenfassung passt sich dem Call an:** Rekord erkennt Verkaufsgespräch, Kundengespräch, intern, privat oder sonstiges. Jeder Call bekommt einen echten Titel („Erstgespräch Wagner Logistik“ statt „Google Meet 15:13“), den Zweck in einem Satz, Kernaussagen und Themen mit Zeitmarken sowie nächste Schritte zum Abhaken.
+- Interesse, Budget, Entscheider, Einwände und Follow-up erscheinen nur bei Verkaufs- und Kundengesprächen. Leere Felder („nicht angesprochen“) werden ausgeblendet.
+- **Jede Zeitmarke ist klickbar** und spielt ab dieser Stelle ab, in Kernaussagen, Themen, Einwänden und im Transkript.
+- **Transkript:** Suche mit Markierung; beim Abspielen läuft die aktuelle Stelle mit.
+- **Fragen:** „Frag den Call“, z. B. „Was habe ich zugesagt?“ oder „Schreib eine Follow-up-Mail“. Claude antwortet nur aus dem Transkript, mit Zeitmarken. Fragen und Antworten bleiben beim Meeting gespeichert.
+- **Transkript kopieren mit einem Klick:** Knopf „Transkript“ oben im Meeting, im Reiter Transkript oder ⌘⇧C. Als reiner Text mit Name und Zeitmarke, bereit für Mail, Dokument oder KI-Chat.
+- **Controller unauffällig:** Der Augen-Knopf klappt den Meeting-Controller zu einem kleinen roten Punkt zusammen, ohne Minuten und Pegel. Ein Klick klappt ihn wieder auf. Die Einstellung „Zeit und Pegel während Meetings anzeigen“ startet jeden Call direkt als Punkt. Zusätzlich gibt es einen roten Punkt in der Menüleiste mit Stoppen und Verwerfen. In Bildschirmfreigaben ist der Controller nie zu sehen.
+- Der Meeting-Teil liest den Claude-Schlüssel nicht mehr beim Start, sondern erst bei der ersten Zusammenfassung.
+- Automatisch aufgenommene Calls unter 45 Sekunden werden verworfen (Fehlauslösungen). Ältere Meetings bekommen die neue Ansicht über ⋯ → „Zusammenfassung neu erstellen“.
+
 ## 1.10.0 – 15.10.2026 · Bibliothek mit Ordnern
 
 - **Ordner** für Aufnahmen (z. B. pro Kunde oder Kanal): in der Seitenleiste anlegen, umbenennen und auflösen. Beim Auflösen bleiben die Aufnahmen erhalten. Es sind normale Finder-Ordner in `~/Movies/Rekord`.

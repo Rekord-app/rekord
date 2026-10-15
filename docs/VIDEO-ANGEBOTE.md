@@ -1,21 +1,23 @@
 # Video-Angebote
 
-Mit einem Video-Angebot schickst du einen eigenen Link für einen Interessenten. Unter dem Video steht **Termin buchen**. Wenn der Zuschauer zustimmt, siehst du in Rekord die gemessenen Öffnungen, abgespielten Abschnitte und Klicks auf den Terminbutton.
+Mit einem Video-Angebot schickst du einen eigenen Link für einen Interessenten. Unter dem Video steht **Termin buchen**. Bei neuen Angeboten startet die Statistik automatisch: Du siehst in Rekord die gemessenen Öffnungen, abgespielten Abschnitte und Klicks auf den Terminbutton.
 
 ## Angebot erstellen
 
-1. Aufnahme im Editor öffnen und im Teilen-Menü **Als Video-Angebot teilen** wählen. Rekord bereitet das Video vor. Für bereits hochgeladene Videos geht es auch über **Freigaben verwalten → Angebot**.
-2. **Empfänger (nur intern)** ausfüllen, etwa „Beispielagentur“. Diese Beschriftung sieht der Zuschauer nicht. Öffentlichen Titel, optional eine Nachricht und den vollständigen HTTPS-Buchungslink eintragen.
-3. Entscheiden, ob Rekord Wiedergabe-Statistik anfragen und bei der ersten gemessenen Öffnung benachrichtigen soll.
+1. In der Seitenleiste **Video-Angebote → Buchungslink & Landingpage** öffnen. Standard-Buchungslink, Absender/Firma, Farbe, Button-Text und optional eine Standardnachricht eintragen. **Vorlage speichern** prüft den HTTPS-Link. Ein schon hinterlegter Standard-Buchungslink wird übernommen.
+2. Aufnahme im Editor öffnen und im Teilen-Menü **Als Video-Angebot teilen** wählen. Ohne gültige Vorlage öffnet Rekord die Einrichtung vor Export und Upload und setzt nach dem Speichern fort. Für bereits hochgeladene Videos geht es auch über **Freigaben verwalten → Angebot**.
+3. **Empfänger (nur intern)** ausfüllen, etwa „Beispielagentur“. Diese Beschriftung sieht der Zuschauer nicht. Titel, Nachricht und Buchungslink lassen sich pro Angebot anpassen. Statistik und erste Öffnungsmeldung sind bereits aktiv, ohne ein Häkchen setzen zu müssen.
 4. **Angebotslink erstellen** kopiert den fertigen Link. **Vorschau** öffnet eine 15 Minuten gültige Ansicht ohne Messung. **Weiterer Empfänger** erzeugt einen weiteren, getrennten Link für dieselbe Videodatei.
 
-Ein fehlgeschlagener Versuch lässt sich wiederholen. Solange du seine Felder nicht veränderst, entsteht dabei kein doppelter Angebotslink. Den Standard-Buchungslink und macOS-Mitteilungen findest du unter **Einstellungen → Teilen → Video-Angebote**. Eine Änderung des Standards verändert bereits erstellte Angebote nicht.
+Unter **Landingpage und Statistik anpassen** kannst du Gestaltung, Messmodus und Mitteilungen für ein einzelnes Angebot ändern. Die Standardvorlage wird als Kopie übernommen; spätere Änderungen daran verändern bereits verschickte Angebote nicht. Der Standardlink ist auch unter **Per Link teilen → Video-Angebote** erreichbar. Ein fehlgeschlagener Versuch mit unveränderten Feldern erzeugt beim Wiederholen keinen doppelten Link.
 
 ## Was Zuschauer sehen
 
-Video und Terminbutton funktionieren ohne Konto und ohne Zustimmung zur Statistik. **Statistik erlauben** startet die Messung ab diesem Zeitpunkt. **Ohne Statistik ansehen** erzeugt keine Mess-Session. **Statistik widerrufen** beendet sie und löscht ihre bereits gespeicherten Messdaten. Schlägt das Löschen wegen einer Verbindungsstörung fehl, werden keine weiteren Werte gesendet; der Button bietet einen erneuten Löschversuch.
+Video und Terminbutton funktionieren ohne Konto. Bei neuen Angeboten beginnt die Messung, sobald die Seite sichtbar ist. Ein sichtbarer Hinweis erklärt die erfassten Daten. **Statistik ausschalten** beendet sie und löscht diese Session. Schlägt das Löschen fehl, werden keine weiteren Werte gesendet; der Button bietet einen erneuten Löschversuch. Die Ausschaltentscheidung wird für diesen Link im selben Tab gemerkt. Browser-Signale Global Privacy Control und Do Not Track werden berücksichtigt.
 
-Es gibt keine Drittanbieter-Tracker, Tracking-Cookies oder geräteübergreifende Zuschauer-ID. Eine zugelassene Session kann im selben Tab nach Neuladen fortgesetzt werden; nach 30 Minuten Inaktivität endet ihre Berechtigung. Ohne JavaScript bleiben Video und Buchungslink verfügbar.
+Die automatische Messung nutzt keine Cookies, Drittanbieter-Tracker oder dauerhafte Zuschauer-ID. Ihre Session bleibt nur im Arbeitsspeicher der Seite. Neuladen zählt deshalb als neue Öffnung; die Zahl entspricht nicht der Anzahl verschiedener Personen. Erst beim Ausschalten wird die Präferenz im Session-Speicher des Tabs gespeichert. Ohne JavaScript bleiben Video und Buchungslink verfügbar, es entsteht keine Statistik.
+
+Ältere Angebote behalten ihren Modus **Nach Zustimmung**: Dort startet **Statistik erlauben** die Messung, und eine zugelassene Session kann im selben Tab nach Neuladen fortgesetzt werden. Der Modus lässt sich unter **Bearbeiten → Landingpage und Statistik anpassen** umstellen. Alte Angebote ohne Vorlagenfelder behalten die Rekord-Gestaltung.
 
 ## Auswertung und Mitteilungen
 
@@ -23,12 +25,12 @@ Es gibt keine Drittanbieter-Tracker, Tracking-Cookies oder geräteübergreifende
 
 | Anzeige | Bedeutung |
 |---|---|
-| Noch keine gemessene Aktivität | Keine zugelassene Messung eingegangen. Das beweist nicht, dass der Link nie geöffnet wurde. |
-| Öffnungen | Anzahl zugelassener Mess-Sessions. Seitenabruf, HEAD, Download und Linkvorschau zählen nicht. |
+| Noch keine gemessene Aktivität | Keine Messung eingegangen. Das beweist nicht, dass der Link nie geöffnet wurde. |
+| Öffnungen | Anzahl gemessener Seitenöffnungen (Sessions). Seitenabruf, HEAD, Download und Linkvorschau zählen nicht. |
 | Wiedergaben gestartet | Sessions mit tatsächlich gemessenem Wiedergabefortschritt. |
 | Beste Wiedergabe | Höchster abgespielter Anteil einer einzelnen Session. Verschiedene Zuschauer werden nicht zusammengerechnet. |
 | Zuletzt abgespielt bis | Letzter gemessener Video-Zeitpunkt; unabhängig vom abgespielten Anteil. |
-| Terminbutton geklickt | Klicks während zugelassener Sessions. Eine Buchung wird nicht bestätigt. |
+| Terminbutton geklickt | Klicks während aktiver Mess-Sessions. Eine Buchung wird nicht bestätigt. |
 
 30 abgespielte Sekunden eines zweiminütigen Videos ergeben 25 %. Wiederholungen desselben Abschnitts erhöhen diesen Anteil nicht. Vorspulen zählt keine übersprungenen Abschnitte. Gemessen wird Wiedergabe, keine Aufmerksamkeit; Hintergrundwiedergabe kann enthalten sein. Netzverlust oder Browserabbruch können den letzten noch unbestätigten Abschnitt verlieren. Clientseitige Werte sind keine manipulationssicheren Nachweise.
 
@@ -38,7 +40,7 @@ Die laufende App aktualisiert etwa alle 15 Sekunden. Bei Fehlern wartet sie schr
 
 ## Bearbeiten, Ablauf und Löschen
 
-- Titel, Nachricht, Buchungslink und Schalter lassen sich ohne neuen Upload bearbeiten.
+- Titel, Nachricht, Buchungslink, Landingpage und Messmodus lassen sich ohne neuen Upload bearbeiten.
 - **Laufzeit ändern** passt den Angebotslink an. Er kann höchstens so lange verfügbar sein wie das Video. Unter den geteilten Aufnahmen macht **Behalten** zunächst das Video dauerhaft.
 - **Angebotslink deaktivieren** sperrt dessen Seite, Medienroute und Messung. Andere Angebote desselben Videos bleiben bestehen.
 - **Video deaktivieren** sperrt auch alle zugehörigen Angebote. Ein zuvor separat versendeter normaler Videolink bleibt sonst ein eigener Zugang.
@@ -47,7 +49,7 @@ Die laufende App aktualisiert etwa alle 15 Sekunden. Bei Fehlern wartet sie schr
 
 ## Für Betreiber
 
-Server und App verwenden weiterhin Protokollversion 1. Die Feature-Werte `video-offers-v1` und `video-analytics-v1` kennzeichnen die Erweiterung. Normales Teilen funktioniert auch mit älteren Servern; dort zeigt Rekord den fehlenden Angebots-Support an.
+Server und App verwenden weiterhin Protokollversion 1. Zusätzlich zu `video-offers-v1` und `video-analytics-v1` benötigt die neue Einrichtung `video-offer-templates-v1` und `video-analytics-automatic-v1`. Zuerst den Server aktualisieren. Die App meldet fehlende Unterstützung vor einem Angebotsupload. Normales Teilen funktioniert auch mit älteren Servern; dort zeigt Rekord den fehlenden Angebots-Support an.
 
 `OPERATOR_NAME` und `PRIVACY_URL` konfigurieren Betreiberangabe und Datenschutzlink. Der Betreiber legt die passenden Informationen fest. `OFFERS_ENABLED=false` stoppt neue Angebote und Messung, lässt vorhandene Seiten, Medien und Terminbuttons verfügbar.
 

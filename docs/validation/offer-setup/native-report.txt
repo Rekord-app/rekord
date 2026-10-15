@@ -1,0 +1,5 @@
+PASS live polling: opening visible after 15 seconds
+SKIP system banner: macOS authorization not granted; no permission prompt triggered by diagnostics
+PASS activity survives recreated native store
+PASS offer navigation before/after attachment and meeting routing
+PASS native setup, form and offer detail snapshots

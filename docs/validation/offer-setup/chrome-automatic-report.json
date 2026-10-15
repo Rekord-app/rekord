@@ -1,0 +1,18 @@
+{
+  "pass": true,
+  "checks": [
+    "no checkbox",
+    "automatic opening",
+    "playback",
+    "CTA",
+    "template",
+    "no automatic storage/cookies",
+    "fresh reload",
+    "opt-out and reload",
+    "GPC",
+    "no JavaScript",
+    "preview",
+    "in-flight stop",
+    "390px layout"
+  ]
+}

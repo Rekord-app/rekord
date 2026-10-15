@@ -52,6 +52,7 @@ public struct ShareServiceStatus: Decodable, Sendable {
     public let availableBytes: Int64
     public let features: [String]
     public var supportsOffers: Bool { features.contains("video-offers-v1") }
+    public var supportsOfferSetup: Bool { features.contains("video-offer-templates-v1") && features.contains("video-analytics-automatic-v1") }
     private enum CodingKeys: String, CodingKey { case service, version, maxUploadBytes, availableBytes, features }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -185,14 +186,23 @@ public struct ShareClient: Sendable {
     }
     public func createOffer(_ draft: OfferDraft) async throws -> VideoOffer {
         try draft.validate()
+        try await requireOfferSetup(draft)
         let result = try JSONDecoder().decode(VideoOffer.self,from: await offerRequest(path: "api/offers",method: "POST",body: JSONEncoder().encode(draft)))
         try validateOffer(result); return result
     }
     public func updateOffer(_ id: String,draft: OfferDraft) async throws -> VideoOffer {
         try draft.validate(); try checkOfferID(id)
-        let data = try JSONSerialization.data(withJSONObject: ["title":draft.title,"recipientLabel":draft.recipientLabel,"message":draft.message,"bookingURL":draft.bookingURL,"trackingEnabled":draft.trackingEnabled,"notifyOnFirstOpen":draft.notifyOnFirstOpen])
+        try await requireOfferSetup(draft)
+        var fields = try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as! [String:Any]
+        fields.removeValue(forKey: "videoId"); fields.removeValue(forKey: "creationRequestId")
+        let data = try JSONSerialization.data(withJSONObject: fields)
         let result = try JSONDecoder().decode(VideoOffer.self,from: await offerRequest(path: "api/offers/\(id)",method: "PATCH",body: data))
         try validateOffer(result); return result
+    }
+    private func requireOfferSetup(_ draft: OfferDraft) async throws {
+        if draft.trackingMode != nil || draft.landingPage != nil {
+            guard try await status().supportsOfferSetup else { throw ShareError.message("Bitte den Share-Server aktualisieren: Landingpage-Vorlagen und automatische Statistik werden noch nicht unterstützt.") }
+        }
     }
     public func setOfferExpiry(_ id: String,date: Date?) async throws -> VideoOffer {
         try checkOfferID(id)
