@@ -13,7 +13,7 @@ import CryptoKit
     @Published var loading = false
     @Published var selectedID: String?
     @Published var notificationsEnabled = UserDefaults.standard.bool(forKey: "offerNotifications")
-    var client: (() throws -> ShareClient)?
+    var client: (() async throws -> ShareClient)?
     private var task: Task<Void,Never>?
     private var wakeObserver: NSObjectProtocol?
     private var configuredServer = ""
@@ -57,7 +57,7 @@ import CryptoKit
         guard !(UserDefaults.standard.string(forKey: "shareServer") ?? "").isEmpty else { offers = []; activity = []; supported = false; message = "Bitte zuerst den Share-Server einrichten."; return }
         loading = true; defer { loading = false }
         do {
-            let api = try client(),server = api.baseURL.absoluteString
+            let api = try await client(),server = api.baseURL.absoluteString
             if configuredServer != server { offers = []; activity = []; supported = false; configuredServer = server; lastSync = nil }
             supported = try await api.status().supportsOffers
             guard supported else { message = "Dieser Server unterstützt Video-Angebote noch nicht. Normales Teilen bleibt verfügbar."; failures = 0; return }

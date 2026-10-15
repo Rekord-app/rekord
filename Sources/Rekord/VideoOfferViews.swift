@@ -63,7 +63,7 @@ struct VideoOfferForm: View {
         Task {
             defer { busy = false }
             do {
-                let api = try store.shareClient()
+                let api = try await store.shareClient()
                 guard try await api.status().supportsOffers else { throw ShareError.message("Server unterstützt Video-Angebote noch nicht.") }
                 try draft.validate()
                 // Keep identical retries idempotent; an edited failed request needs a fresh identity.

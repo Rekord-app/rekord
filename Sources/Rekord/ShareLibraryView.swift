@@ -63,7 +63,7 @@ struct ShareLibraryView: View {
     private func reload() async {
         busy = true; defer { busy = false }
         do {
-            let client = try store.shareClient()
+            let client = try await store.shareClient()
             let status = try await client.status(); lifecycle = status.features.contains("guide-lifecycle-v2"); supportsOffers = status.supportsOffers
             if supportsOffers { await store.shareActivity.refresh() }
             videos = try await client.videos(); guides = try await client.guides()
@@ -83,7 +83,7 @@ struct ShareLibraryView: View {
         busy = true
         Task {
             do {
-                let client = try store.shareClient()
+                let client = try await store.shareClient()
                 if let guideID { try await client.revokeGuide(guideID) }
                 else if let videoID { try await client.revoke(videoID) }
                 await reload(); message = "Freigaben deaktiviert. Bereits heruntergeladene Kopien bleiben beim Empfänger."

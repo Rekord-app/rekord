@@ -174,7 +174,7 @@ enum CaptureMode: String, CaseIterable { case display, window, area }
         guides.microphoneID = { [weak self] in self?.microphoneID ?? "" }
         guides.onPhaseChange = { [weak self] in self?.updateHotKeys(); self?.objectWillChange.send(); if self?.guides.phase != .idle { self?.inventory.checkIn.cancel() } }
         guides.bringForward = { [weak self] in self?.showGuides() }
-        guides.shareClient = { [weak self] in (self?.shareConfigured ?? false) ? try? self?.shareClient() : nil }
+        guides.shareClient = { [weak self] in guard let self,self.shareConfigured else { return nil }; return try await self.shareClient() }
         for name in [AVCaptureDevice.wasConnectedNotification,AVCaptureDevice.wasDisconnectedNotification] {
             NotificationCenter.default.addObserver(forName: name,object: nil,queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {

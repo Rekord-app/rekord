@@ -8,6 +8,7 @@ Neue Einträge kommen oben dazu; die Version steht in `Resources/Info.plist`.
 - **Buchungslink & Landingpage** direkt bei Video-Angeboten einrichten: Standardlink, Absender, Farbe, Button-Text und Nachricht mit Vorschau. Ohne gültigen Link startet zuerst die Einrichtung, danach der Upload.
 - Neue Angebote übernehmen die Vorlage. Bereits verschickte Links behalten ihre Inhalte; einzelne Seiten lassen sich weiter bearbeiten.
 - **Statistik automatisch aktiv:** neue Angebotsseiten erfassen Öffnungen, abgespielte Abschnitte und Button-Klicks ohne vorheriges Ankreuzen. Sichtbarer Hinweis und Ausschaltoption, keine Cookies oder dauerhafte Zuschauer-ID. Neuladen zählt als neue Session; Browser-Datenschutzsignale werden berücksichtigt.
+- Hintergrundabfragen blockieren den App-Start bei gesperrtem Schlüsselbund nicht mehr; die Freigabe erfolgt bei Bedarf in den Teilen-Einstellungen.
 - Alte Angebote behalten ihre Zustimmungseinstellung. Vorschauen bleiben ohne Messung. Zuerst den Share-Server aktualisieren; ältere Server werden vor dem Upload erkannt.
 
 ## 1.11.0 – 15.10.2026 · Meeting-Rückblick

@@ -1,6 +1,6 @@
 # Offer setup and automatic statistics — 2026-10-15
 
-Rekord 1.12.0 (14). Synthetic media and booking destinations only.
+Rekord 1.12.0 (15). Synthetic media and booking destinations only.
 
 - Release app and MCP build: pass; strict local signature verification: pass.
 - Core tests: pass, including automatic defaults, migration of the existing booking URL, template snapshots, validation and preservation after an invalid save.
@@ -16,3 +16,5 @@ The automatic mode counts page sessions, including reloads, rather than unique p
 
 ![Native setup](native-setup.png)
 ![Mobile landing page](webkit-automatic-mobile.png)
+
+The installed build exposed a pre-existing main-thread keychain wait during background polling. Share credential reads now run off the main actor; settings, offers, ordinary video sharing and guide sharing await them. The system authorization itself is unchanged.

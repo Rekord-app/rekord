@@ -29,7 +29,7 @@ import RecorderCore
     var nextTitle: String?
     var onPhaseChange: (() -> Void)?
     var bringForward: (() -> Void)?
-    var shareClient: () -> ShareClient? = { nil }
+    var shareClient: () async throws -> ShareClient? = { nil }
     private var recorder: ScreenRecorder?
     private var accessibility: GuideAccessibility?
     private var directory: URL?
@@ -206,10 +206,10 @@ import RecorderCore
     }
     func share(_ url: URL) {
         guard phase == .idle,let guide = load(url) else { return }
-        guard let client = shareClient() else { error = "Teilen ist noch nicht eingerichtet (Seitenleiste → Teilen einrichten)."; return }
         phase = .processing; progress = "Anleitung wird hochgeladen …"; onPhaseChange?()
         Task {
             do {
+                guard let client = try await shareClient() else { throw ShareError.message("Teilen ist noch nicht eingerichtet (Seitenleiste → Teilen einrichten).") }
                 let shared = try await GuideSharing.upload(guide: guide,directory: url,client: client) { [weak self] value in
                     Task { @MainActor in self?.progress = "Anleitung wird hochgeladen … \(Int(value*100)) %" }
                 }
@@ -231,11 +231,12 @@ import RecorderCore
         revision += 1
     }
     func revokeShare(_ url: URL) {
-        guard phase == .idle,let record = GuideSharing.record(in: url),let client = shareClient() else { return }
+        guard phase == .idle,let record = GuideSharing.record(in: url) else { return }
         phase = .processing; onPhaseChange?()
         Task {
             defer { phase = .idle; onPhaseChange?(); revision += 1 }
             do {
+                guard let client = try await shareClient() else { throw ShareError.message("Teilen ist noch nicht eingerichtet (Seitenleiste → Teilen einrichten).") }
                 try await client.requireGuideLifecycle()
                 let active = try await client.guides()
                 guard active.contains(where: { $0.id == record.guideID && $0.url == record.url }) else { reconcileShares(active,client: client); return }

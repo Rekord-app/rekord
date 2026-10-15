@@ -4,9 +4,9 @@ import CryptoKit
 import RecorderCore
 
 extension EditorStore {
-    func shareClient(server: URL? = nil) throws -> ShareClient {
+    func shareClient(server: URL? = nil) async throws -> ShareClient {
         let address = server?.absoluteString ?? UserDefaults.standard.string(forKey: "shareServer") ?? ""
-        guard let url = URL(string: address),let token = try ShareKeychain.read(server: address) else { throw ShareError.message("Bitte zuerst deinen Share-Server einrichten.") }
+        guard let url = URL(string: address),let token = try await ShareKeychain.readAsync(server: address) else { throw ShareError.message("Bitte zuerst deinen Share-Server einrichten.") }
         return try ShareClient(baseURL: url,token: token)
     }
     func loadShareReceipt(directory: URL) {
@@ -27,7 +27,7 @@ extension EditorStore {
         shareTask = Task {
             defer { phase = .idle; shareTask = nil }
             do {
-                let client = try shareClient(), limits = try await client.status()
+                let client = try await shareClient(), limits = try await client.status()
                 if forOffer && !limits.supportsOfferSetup { throw ShareError.message("Bitte Share-Server aktualisieren: Landingpage-Vorlagen und automatische Statistik fehlen noch.") }
                 let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
                 let fingerprint = try project.fingerprint()
@@ -80,7 +80,7 @@ extension EditorStore {
         shareTask = Task {
             defer { phase = .idle; shareTask = nil }
             do {
-                let client = try shareClient(server: receipt.server),guides = try await client.guides()
+                let client = try await shareClient(server: receipt.server),guides = try await client.guides()
                 let impact = ShareRevocation(videoID: receipt.video.id,guides: guides)
                 var offers: [VideoOffer] = [],after = ""
                 if try await client.status().supportsOffers {

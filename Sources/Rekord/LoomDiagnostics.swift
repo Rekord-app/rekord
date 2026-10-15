@@ -28,7 +28,7 @@ import RecorderCore
             guard ["127.0.0.1","localhost"].contains(connection.baseURL.host ?? "") else { throw ShareError.message("Acceptance fixture requires loopback sharing, so real test footage is never published externally.") }
             let previous = UserDefaults.standard.string(forKey: "shareServer")
             let recent = UserDefaults.standard.stringArray(forKey: "recentProjects")
-            let oldToken = try ShareKeychain.read(server: connection.baseURL.absoluteString)
+            let oldToken = try await ShareKeychain.readAsync(server: connection.baseURL.absoluteString)
             let clipboard = NSPasteboard.general.pasteboardItems?.map { item -> NSPasteboardItem in
                 let copy = NSPasteboardItem(); for type in item.types { if let data = item.data(forType: type) { copy.setData(data,forType: type) } }; return copy
             }

@@ -69,7 +69,11 @@ struct ShareSettingsView: View {
         .sheet(isPresented: $offerSetup) { OfferSetupView().environmentObject(store) }
         .sheet(isPresented: $offers) { VideoOffersView(activity: store.shareActivity).environmentObject(store) }
         .sheet(isPresented: $library) { ShareLibraryView().environmentObject(store) }
-        .onAppear { token = (try? ShareKeychain.read(server: address)) ?? "" }
+        .task {
+            let server = address
+            do { token = try await ShareKeychain.readAsync(server: server) ?? "" }
+            catch { message = error.localizedDescription }
+        }
     }
     private func importConnection() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
@@ -92,6 +96,10 @@ enum ShareKeychain {
     /// (cdhash) for locally signed apps, so every read by a new build would otherwise ask for the login password.
     private static let lock = NSLock()
     nonisolated(unsafe) private static var cache: [String:String] = [:]
+    // A legacy login-keychain authorization can wait for macOS UI. Never block the main actor.
+    static func readAsync(server: String) async throws -> String? {
+        try await Task.detached { try read(server: server) }.value
+    }
     static func read(server: String) throws -> String? {
         // Diagnostics on a differently signed test build: no Keychain prompt (the item is bound to the cdhash).
         if let env = ProcessInfo.processInfo.environment["REKORD_SHARE_TOKEN"] { return env.isEmpty ? nil : env }
@@ -107,6 +115,9 @@ enum ShareKeychain {
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary,&result)
         if status == errSecItemNotFound { return nil }
+        if status == errSecInteractionNotAllowed || status == errSecAuthFailed {
+            throw ShareError.message("Share-Schlüssel gesperrt. Öffne „Teilen eingerichtet“, um den Schlüsselbundzugriff freizugeben.")
+        }
         guard status == errSecSuccess,let data = result as? Data else { throw ShareError.message("Upload-Schlüssel konnte nicht aus dem Schlüsselbund gelesen werden.") }
         return String(data: data,encoding: .utf8)
     }

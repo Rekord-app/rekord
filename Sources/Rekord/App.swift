@@ -46,7 +46,7 @@ import RecorderCore
     private var pendingOpen: URL?
     func attach(_ store: EditorStore) {
         self.store = store
-        store.shareActivity.client = { [weak store] in guard let store else { throw ShareError.message("Rekord wurde geschlossen.") }; return try store.shareClient() }
+        store.shareActivity.client = { [weak store] in guard let store else { throw ShareError.message("Rekord wurde geschlossen.") }; return try await store.shareClient() }
         store.shareActivity.start()
         if let info = pendingNotification { pendingNotification = nil; handleNotification(info) }
         store.updateHotKeys()
