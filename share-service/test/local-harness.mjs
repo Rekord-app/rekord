@@ -1,0 +1,12 @@
+import { createShareServer } from '../server.mjs';
+import { randomBytes } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+const root = path.resolve(process.argv[2]);
+await mkdir(root,{ recursive:true,mode:0o700 });
+const token = randomBytes(32).toString('hex');
+const server = await createShareServer({ storageDirectory:path.join(root,'storage'),uploadToken:token });
+await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
+await writeFile(path.join(root,'connection.json'),JSON.stringify({ baseURL:`http://127.0.0.1:${server.address().port}`,token }),{ mode:0o600 });
+console.log(`Local share integration server ready on port ${server.address().port}; credentials saved privately, not logged.`);
+for (const signal of ['SIGINT','SIGTERM']) process.on(signal,() => server.close(() => process.exit(0)));
